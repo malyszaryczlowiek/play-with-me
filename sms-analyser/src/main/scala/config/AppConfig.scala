@@ -16,19 +16,23 @@ object AppConfig {
   logger.trace(s"Loading configuration from application.conf.")
 
 
-
-
-  val kafkaConfig: KafkaConfig = KafkaConfig(
-    config.getString(s"kafka-servers"),
+  val internalKafkaBroker: KafkaConfig = KafkaConfig(
+    config.getString(s"internal-kafka-broker.servers"),
     config.getString(s"file-store"),
     config.getInt("topic-partition-num"),
     config.getInt("topic-replication-factor").toShort
   )
 
+  val userStatusTopicName: String = config.getString("internal-kafka-broker.user-status-topic-name")
+  val uriConfidenceLevelTopicName =  config.getString("internal-kafka-broker.uri-confidence-level-topic-name")
+
   val analysisDir: String = config.getString("output-analysis-dir")
+  val appId: String       = config.getString(s"application-id")
+  val sparkMaster: String = config.getString("spark.master")
 
 
-  val appId: String = config.getString(s"application-id")
 
+  val externalKafkaServers: String = config.getString(s"external-kafka-broker.servers")
+  val smsInputTopicName: String    = config.getString(s"external-kafka-broker.sms-topic")
 
 }
