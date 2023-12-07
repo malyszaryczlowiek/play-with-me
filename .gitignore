@@ -1,5 +1,13 @@
 *.class
 *.log
+TODO
+/.idea
+
+/sms-analyser/.bsp
+/sms-analyser/.idea
+/sms-analyser/target
+/sms-analyser/project/project
+/sms-analyser/project/target
 
 # virtual machine crash logs, see http://www.java.com/en/download/help/error_hotspot.xml
 hs_err_pid*
