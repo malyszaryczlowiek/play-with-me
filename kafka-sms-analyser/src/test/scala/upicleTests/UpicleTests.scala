@@ -1,9 +1,10 @@
 package io.github.malyszaryczlowiek
 package upicleTests
 
-import io.github.malyszaryczlowiek.model.PhishingRequestBody
+import model.PhishingRequestBody
 import org.scalatest.funsuite.AnyFunSuite
 import upickle.default._
+
 
 
 class UpicleTests extends AnyFunSuite {

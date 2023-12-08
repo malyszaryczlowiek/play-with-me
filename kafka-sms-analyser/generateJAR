@@ -1,0 +1,13 @@
+#!/bin/zsh
+
+cd kafka-sms-analyser
+sbt assembly
+# dodaję do JAR potrzebne pliki konfiguracyjne.
+jar -uf ./target/scala-2.13/kafka-sms-analyser-0.1.0.jar application.conf
+jar -uf ./target/scala-2.13/kafka-sms-analyser-0.1.0.jar log4j2.xml
+
+# jar -uf ./target/scala-2.13/kafka-sms-analyser-0.1.0.jar logback.xml
+cd ..
+
+
+

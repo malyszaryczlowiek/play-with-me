@@ -2,8 +2,7 @@ package io.github.malyszaryczlowiek
 package sttpTests
 
 import org.scalatest.funsuite.AnyFunSuite
-import sttp.client3.HttpClientSyncBackend
-import sttp.client3.quick._
+import sttp.client3._
 import sttp.model.StatusCode
 import upickle.default._
 

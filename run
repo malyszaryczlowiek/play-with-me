@@ -1,0 +1,5 @@
+#!/bin/zsh
+
+chmod +x ./kafka-sms-analyser/generateJAR
+
+./kafka-sms-analyser/generateJAR

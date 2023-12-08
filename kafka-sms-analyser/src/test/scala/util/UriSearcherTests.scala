@@ -3,6 +3,7 @@ package util
 
 import org.scalatest.funsuite.AnyFunSuite
 
+
 class UriSearcherTests extends AnyFunSuite {
 
   val searcher = new UriSearcher()

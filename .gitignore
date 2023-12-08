@@ -3,11 +3,13 @@
 TODO
 /.idea
 
-/sms-analyser/.bsp
-/sms-analyser/.idea
-/sms-analyser/target
-/sms-analyser/project/project
-/sms-analyser/project/target
+
+/kafka-sms-analyser/.bsp
+/kafka-sms-analyser/.idea
+/kafka-sms-analyser/target
+/kafka-sms-analyser/project/project
+/kafka-sms-analyser/project/target
+
 
 # virtual machine crash logs, see http://www.java.com/en/download/help/error_hotspot.xml
 hs_err_pid*
