@@ -38,6 +38,8 @@ class UpicleTests extends AnyFunSuite {
     assert(phishing == testWith)
   }
 
+
+
   test("object with null to json") {
     implicit val readWriter: ReadWriter[PhishingRequestBody] = macroRW[PhishingRequestBody]
     val parsed = write(PhishingRequestBody(null, List("SOCIAL_ENGINEERING"), false))
@@ -45,6 +47,42 @@ class UpicleTests extends AnyFunSuite {
     println(s"$parsed")
     assert(parsed == json)
   }
+
+
+  test("testing seq of strings") {
+    // import upickle.default._ required
+    // implicit val readWriter: ReadWriter[Seq[String]] = macroRW[Seq[String]]
+    val li = List("")
+    val parsed = write(li)
+    val json = """[""]"""
+    println(s"$parsed")
+    assert(parsed == json)
+  }
+
+
+  test("testing seq of strings with null") {
+    // import upickle.default._ required
+    val li = List("A", null, "C")
+    val parsed = write(li)
+    val json = """["A",null,"C"]"""
+    println(s"$parsed")
+    assert(parsed == json)
+  }
+
+
+  test("testing null") {
+    // import upickle.default._ required
+    val s: String = null
+    val parsed = write(s)
+    val json = """null"""
+    println(s"$parsed")
+    assert(parsed == json)
+  }
+
+
+
+
+
 
 
 

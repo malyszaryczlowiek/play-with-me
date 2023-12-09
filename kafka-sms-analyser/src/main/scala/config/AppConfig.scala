@@ -15,7 +15,9 @@ object AppConfig {
   private val config: Config = ConfigFactory.load("application.conf").getConfig("kafka-sms-analyser")
   // logger.trace(s"Loading configuration from application.conf.")
 
-  val appId: String       = config.getString(s"application-id")
+  def appId: String       = config.getString(s"application-id")
+
+
 
   val kafkaBroker: KafkaConfig = KafkaConfig(
     config.getString(s"kafka-broker.servers"),
@@ -26,18 +28,52 @@ object AppConfig {
 
 
   // topics to create
-  val uriConfidenceTopicName: String = config.getString(s"kafka-broker.topic.uri-confidence-level-topic")
-  val userStatusTopicName: String    = config.getString(s"kafka-broker.topic.user-status-topic")
-
-  // topic we read from
-  val smsInputTopicName: String    = config.getString(s"kafka-broker.topic.sms-input-topic")
-
-  // topic we send processed sms
-  val smsOutputTopicName: String    = config.getString(s"kafka-broker.topic.sms-output-topic")
 
 
-  // service number to shich on/off phishing service
-  val serviceNumber: String = config.getString(s"service-number")
+  /**
+   * topic where we keep information about uri confidence status
+   */
+  def uriConfidenceTopicName: String = config.getString(s"kafka-broker.topic.uri-confidence-level-topic")
+
+
+  /**
+   * topic where we keep all numbers with phishing service turned off.
+   */
+  def userStatusTopicName: String = config.getString(s"kafka-broker.topic.user-status-topic")
+
+
+  /**
+   * topic we read sms from
+   */
+  def smsInputTopicName: String = config.getString(s"kafka-broker.topic.sms-input-topic")
+
+
+  /**
+   * topic we send fully processed sms
+    */
+  def smsOutputTopicName: String = config.getString(s"kafka-broker.topic.sms-output-topic")
+
+
+  /**
+   * number to switch on/off phishing service
+    */
+  def serviceNumber: String = config.getString(s"service-number")
+
+
+
+  def phishingServiceServer: String = config.getString(s"phishing-service.server")
+
+  def phishingServiceHeader: String = config.getString(s"phishing-service.header")
+
+  def phishingServiceToken: String = config.getString(s"phishing-service.token")
+
+
+
+
+
+
+
+
 
 //   val analysisDir: String = config.getString("output-analysis-dir")
 

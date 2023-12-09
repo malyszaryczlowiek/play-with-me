@@ -21,6 +21,14 @@ import io.github.malyszaryczlowiek.kessengerlibrary.kafka.{Done, Error, TopicCre
 class SmsAnalyser {
 
 
+  // define types to simpler stream analysis
+  type Uri        = String
+  type Sender     = String
+  type Recipient  = String
+  type Confidence = String
+
+
+
   def main(args: Array[String]): Unit = {
 
 
@@ -39,6 +47,14 @@ class SmsAnalyser {
 
     // define builder
     val builder: StreamsBuilder = new StreamsBuilder()
+
+
+
+    /*
+    Building topology
+     */
+
+
 
     // wczytuję strumień z sms'ami
     val smsStream: KStream[String, Sms] = builder.stream( smsInputTopicName )(Consumed `with`(stringSerde, stringSerde))
