@@ -11,7 +11,7 @@ class UriSearcherTests extends AnyFunSuite {
 
   test("regex test for whitespaces spliting") {
     val u0 = s"coś innego niż nic"
-    val r = "\\s".r
+    val r = "\\s+".r
     assert( r.split(u0).toList.length == 4, "długość się nie zgadza" )
 
   }

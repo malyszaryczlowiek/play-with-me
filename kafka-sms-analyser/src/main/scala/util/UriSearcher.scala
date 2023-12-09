@@ -6,7 +6,7 @@ class UriSearcher {
   /**
    * regex do dzielenia stringa po whitespace
    */
-  private val regexSplitter = s"\\s".r
+  private val regexSplitter = s"\\s+".r
 
 
 

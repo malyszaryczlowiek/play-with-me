@@ -1,3 +1,6 @@
-# play-with-me
+# Architektura
 
-cały nowo dodany kod jest w dev-branch
+# Założenia
+
+# Topologia
+![Topologia](topology.jpeg)

@@ -29,6 +29,24 @@ class UpicleTests extends AnyFunSuite {
   }
 
 
+  test("test with null") {
+    implicit val readWriter: ReadWriter[PhishingRequestBody] = macroRW[PhishingRequestBody]
+    val json = """{"uri":null,"threatTypes":["SOCIAL_ENGINEERING"],"allowScan":false}"""
+    val phishing = read[PhishingRequestBody](json)
+    println(s"$phishing")
+    val testWith = PhishingRequestBody(null, List("SOCIAL_ENGINEERING"), false)
+    assert(phishing == testWith)
+  }
+
+  test("object with null to json") {
+    implicit val readWriter: ReadWriter[PhishingRequestBody] = macroRW[PhishingRequestBody]
+    val parsed = write(PhishingRequestBody(null, List("SOCIAL_ENGINEERING"), false))
+    val json = """{"uri":null,"threatTypes":["SOCIAL_ENGINEERING"],"allowScan":false}"""
+    println(s"$parsed")
+    assert(parsed == json)
+  }
+
+
 
 }
 

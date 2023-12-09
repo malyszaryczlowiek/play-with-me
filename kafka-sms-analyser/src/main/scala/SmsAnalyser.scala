@@ -1,18 +1,17 @@
 package io.github.malyszaryczlowiek
 
+import org.apache.kafka.common.config.TopicConfig
 import org.apache.kafka.streams.{KafkaStreams, StreamsConfig, Topology}
 import org.apache.kafka.streams.scala.StreamsBuilder
-import org.apache.kafka.streams.scala.kstream.{Consumed, KStream}
+import org.apache.kafka.streams.scala.kstream.{Consumed, KStream, Materialized}
 import org.apache.kafka.streams.scala.serialization.Serdes.{intSerde, longSerde, shortSerde, stringSerde}
+import org.apache.kafka.streams.kstream.{GlobalKTable, Named}
 
 import java.util.Properties
 import config.AppConfig._
 import model.Sms
 
 import io.github.malyszaryczlowiek.kessengerlibrary.kafka.{Done, Error, TopicCreator, TopicSetup}
-import io.github.malyszaryczlowiek.kessengerlibrary.status.Error
-import org.apache.kafka.common.config.TopicConfig
-import org.apache.kafka.streams.kstream.{GlobalKTable, Named}
 
 //import play.api.Configuration.logger.logger
 
@@ -44,22 +43,38 @@ class SmsAnalyser {
     // wczytuję strumień z sms'ami
     val smsStream: KStream[String, Sms] = builder.stream( smsInputTopicName )(Consumed `with`(stringSerde, stringSerde))
       // wykonuję mapowanie gdzie klucz i tak jest null a sms jest w value
-      .map( (k,v) => (k, mappers.Mappers.mapStringToSms(v)) , Named.as("sms_input") )
+      .map( (k,v) => (k, mappers.Mappers.mapStringToSms(v)) , Named.as("sms_stream") )
+
+
+
 
     // wczytuję informację z użytkownikami i czy mają aktywną usługę
     // zapisuję to w globalną tabelę tak aby było dostępne pomiędzy wszytkie instancje aplikacji
     // w tej tabeli klucz to user number a wartość to boolean zapisany jako string z info czy ma aktywną usługę
-    val userGlobalTable: GlobalKTable[String, String] = builder.globalTable( userStatusTopicName )(Consumed `with`(stringSerde, stringSerde))
+    val userGlobalTable: GlobalKTable[String, String] = builder.globalTable(
+      userStatusTopicName,
+      Materialized.as("user_table")(stringSerde,stringSerde)
+    )(Consumed `with`(stringSerde, stringSerde))
+
+
+
 
     // wczytuję informacje o stronach i ich confidence level
     // to też jest globalna tabela
     // tutaj kluczem jest uri a wartością jest confidence level
-    val uriConfidenceLevelGlobalTable: GlobalKTable[String, String] = builder.globalTable( uriConfidenceTopicName )(Consumed `with`(stringSerde, stringSerde))
+    val uriConfidenceLevelGlobalTable: GlobalKTable[String, String] =
+      builder.globalTable(
+        uriConfidenceTopicName,
+        Materialized.as("uri_table")(stringSerde,stringSerde)
+      )(Consumed `with`(stringSerde, stringSerde))
 
 
 
 
     // todo napisać join smsStream z groupedUriTable joinedSmsUriStream
+
+    // sprawdzić jescze cogroup
+    // stream.peek() do wywołania zapytania do google API ???
 
     // todo filtrować po rekordach z nullowym uri z  joinedSmsUriStream i te które będą null trzeba przebadać za pomocą google Api
 
@@ -105,7 +120,6 @@ class SmsAnalyser {
           streams.close()
         // logger.warn(s"Streams closed from ShutdownHook.")
       })
-      //initializeShutDownHook = false
 
 
       // we starting streams
