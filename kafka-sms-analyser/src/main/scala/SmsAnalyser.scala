@@ -290,6 +290,7 @@ class SmsAnalyser {
     // we do not have what to process because head of list was processed)
     val uriCheckedButNotSecure: KStream[Sms, ConfidenceAndUriList] = splitCheckedUri.apply("confidence_is_not_secure")
 
+
     val checkedUriIsSecureOrNull: KStream[Sms, ConfidenceAndUriList] = splitCheckedUri.apply("confidence_is_not_secure")
 
 
@@ -322,6 +323,11 @@ class SmsAnalyser {
     val nonEmptyUriList: KStream[Sms, UriList] = splitUriListEmptyOrNot.apply("non_empty_uri_list")
 
 
+    // here we send sms with protection with more than one uri to process rest of uri
+    // from uriList (head is processed now)
+    nonEmptyUriList.to( smsWithManyUriTopicName )(Produced.`with`(smsSerde, uriListSerde))
+
+
     val emptyUriList: KStream[Sms, UriList]    = splitUriListEmptyOrNot.apply("empty_uri_list")
 
 
@@ -346,33 +352,6 @@ class SmsAnalyser {
 
     // and we saving all new checked uris to topic for uriTable
     uriConfidenceToSave.to( uriConfidenceTopicName )(Produced.`with`(stringSerde, stringSerde))
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
