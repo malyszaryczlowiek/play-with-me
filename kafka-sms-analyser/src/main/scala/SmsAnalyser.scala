@@ -33,10 +33,9 @@ class SmsAnalyser {
 
     // define types for easier managing streams
     type Uri              = String
-    // type UriList          = List[Uri]
     type Nulll            = String    // this type means string is null for sure
     type UserNum          = String
-    type NullOrUserNum    = String
+    type UserNumOrNull    = String
     type UserStatusOrNull = String
     type Confidence       = String
     type ConfidenceOrNull = String    // may be confidence or null string
@@ -156,7 +155,7 @@ class SmsAnalyser {
 
 
 
-    val checkingUserService: KStream[Sms, NullOrUserNum] = smsUserNum.leftJoin( userTable )(
+    val checkingUserService: KStream[Sms, UserNumOrNull] = smsUserNum.leftJoin( userTable )(
       // join using userNum
       (sms, userNum) => userNum,
       // if userStatus is null this means there is no user in table

@@ -39,14 +39,19 @@ I tak:
   * są wysłane do użytkowników z wyłączoną ochroną,
   * są wysłane do użytkowników z włączoną ochroną i nie zawierają żadnych linków,
   * są wysłane do użytkowników z włączoną ochroną i zawierają linki z Confidence Level maksymalnie na poziomie `LOW`,
-* `user_status` - 
+* `user_status` - Ponieważ w założeniach przyjąłem, że użytkownik na starcie ma zapewnioną ochronę, to nie jest konieczne
+  przechowywanie informacji o użytkownikach z aktywną usługą. Dlatego w tym topiku przechowywane są informacje tylko o 
+  użytkownikach mających wyłączoną usługę. Takie rozwiązanie jest korzystne z dwóch punktów widzenia. Raz, że mniej rekordów
+  do przeszukania, dwa mniej danych przechowujemy na brokerze. W topiku są dane w postaci klucz to `user_num` a wartość
+  to stringowy `"false"` lub `null`. Ponieważ dane z tego topika są zaciągane do GlobalKTable to wartość `null` kasuje nam ten
+  rekord z tabeli co jest jednoznaczne z ponowną aktywacją usługi przez użytkownika.  
 * `uri_confidence_level` - 
 * `sms_with_many_uri` -  jest to *pętlowy* topik, który służy nam do iteracyjnego sprawdzania wszystkich liknków znalezionych 
   w SMSie. Dzieje się tak do momentu, aż któryś z linków okaże się niebezpieczny wtedy taki SMS wypada z obiegu 
   (wchodzą tam tylko SMSy z URI i aktywną ochroną) a pozostałe linki z SMSa trafiają do topica `uri_to_check`, żeby 
   zostały sprawdzone, i nabudowywały nam naszą tablicę `uri_table`.
 * `uri_to_check` - jest to topic do którego trafiają adresy URI pochodzące z SMSów użytkowników z włączoną ochroną,
-  które to SMSy zostały odrzucone bo zawierały przynajmniej dwa linki z czego pierwszy był niebezpieczny. Takie URI są 
+  które to SMSy zostały odrzucone bo nieostatni znaleziony w wiadomości link był niebezpieczny. Takie URI są 
   następnie ponownie zaciągane do aplikacji i jeśli nie ma ich w naszej tablicy `uriTable` to dla nich też zostanie 
   sprawdzony status. Status ten następnie trafi do tejże tablicy. 
 
