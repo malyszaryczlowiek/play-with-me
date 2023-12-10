@@ -3,13 +3,15 @@ package model
 
 object ConfidenceLevel {
 
-  val CONFIDENCE_LEVEL_UNSPECIFIED: String = "CONFIDENCE_LEVEL_UNSPECIFIED"
-  val SAFE: String      = "SAFE"
-  val LOW: String       = "LOW"
-  val MEDIUM: String    = "MEDIUM"
-  val HIGH: String      = "HIGH"
-  val HIGHER: String    = "HIGHER"
-  val VERY_HIGH: String = "VERY_HIGH"
-  val EXTREMELY_HIGH: String = "EXTREMELY_HIGH"
+  type Confidence = String
+
+  val CONFIDENCE_LEVEL_UNSPECIFIED: Confidence = "CONFIDENCE_LEVEL_UNSPECIFIED"
+  val SAFE: Confidence           = "SAFE"
+  val LOW: Confidence            = "LOW"
+  val MEDIUM: Confidence         = "MEDIUM"
+  val HIGH: Confidence           = "HIGH"
+  val HIGHER: Confidence         = "HIGHER"
+  val VERY_HIGH: Confidence      = "VERY_HIGH"
+  val EXTREMELY_HIGH: Confidence = "EXTREMELY_HIGH"
 
 }
