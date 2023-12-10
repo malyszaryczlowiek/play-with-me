@@ -4,7 +4,6 @@ package serdes
 
 import org.apache.kafka.common.serialization.Deserializer
 import model.Sms
-import mappers.Mappers.mapStringToSms
 import upickle.default._
 
 

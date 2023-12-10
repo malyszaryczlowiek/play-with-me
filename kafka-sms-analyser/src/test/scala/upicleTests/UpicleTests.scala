@@ -81,6 +81,16 @@ class UpicleTests extends AnyFunSuite {
 
 
 
+  test("list of Strings to object") {
+    // zakomentowana poniżej linijka wyżuca wyjątek !!!! I to powodowało problemy
+    // implicit val readWriter: ReadWriter[Seq[String]] = macroRW[Seq[String]]
+    val json = """["A","B"]"""
+    val list = read[Seq[String]](json)
+    println(s"$list")
+    val testWith = Seq("A","B")
+    assert(list == testWith)
+  }
+
 
 
 

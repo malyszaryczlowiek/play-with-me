@@ -49,6 +49,12 @@ object AppConfig {
 
 
   /**
+   * topic where we redirect sms with many uri links
+   */
+  def smsWithManyUriTopicName: String = config.getString(s"kafka-broker.topic.sms-with-many-uri-topic")
+
+
+  /**
    * topic we send fully processed sms
     */
   def smsOutputTopicName: String = config.getString(s"kafka-broker.topic.sms-output-topic")

@@ -1,6 +1,9 @@
+# Założenia
+
+Aplikacja tworzy kilka dodatkowych topiców
 # Architektura
 
-# Założenia
+
 
 # Topologia
 ![Topologia](topology.jpeg)
