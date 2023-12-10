@@ -32,7 +32,7 @@ dzięki czemu łatwiej jest śledzić przepływ danych. Wbrew pozorom, implement
 Przedstawiona topologia wymaga oprócz topiku wejściowego `sms_input` utworzenia kilku dodatkowych topików.
 Topiki te są tworzone automatycznie przy uruchamianiu aplikacji, a ich parametry takie jak stopień replikacji i
 stopień partycjonownaia można skonfigurować w pliku konfiguracyjnym `application.conf`. Nie można natomiast modyfikować
-ich czasu retencji. Jest on ustawiony na nieskończoność. Jest to zabezpieczenie przed ewentualnym gubieniem danych. 
+ich czasu retencji. Jest on ustawiony na nieskończoność. Jest to zabezpieczenie przed gubieniem danych. 
 I tak:
 
 * `sms_output` - topic na który będą trafiały wszystkie smsy, które:
@@ -41,8 +41,14 @@ I tak:
   * są wysłane do użytkowników z włączoną ochroną i zawierają linki z Confidence Level maksymalnie na poziomie `LOW`,
 * `user_status` - 
 * `uri_confidence_level` - 
-* `sms_with_many_uri` -  
-* `uri_to_check` -
+* `sms_with_many_uri` -  jest to *pętlowy* topik, który służy nam do iteracyjnego sprawdzania wszystkich liknków znalezionych 
+  w SMSie. Dzieje się tak do momentu, aż któryś z linków okaże się niebezpieczny wtedy taki SMS wypada z obiegu 
+  (wchodzą tam tylko SMSy z URI i aktywną ochroną) a pozostałe linki z SMSa trafiają do topica `uri_to_check`, żeby 
+  zostały sprawdzone, i nabudowywały nam naszą tablicę `uri_table`.
+* `uri_to_check` - jest to topic do którego trafiają adresy URI pochodzące z SMSów użytkowników z włączoną ochroną,
+  które to SMSy zostały odrzucone bo zawierały przynajmniej dwa linki z czego pierwszy był niebezpieczny. Takie URI są 
+  następnie ponownie zaciągane do aplikacji i jeśli nie ma ich w naszej tablicy `uriTable` to dla nich też zostanie 
+  sprawdzony status. Status ten następnie trafi do tejże tablicy. 
 
 
 
@@ -60,6 +66,8 @@ TODO
 
 # What TODO
 Co można by jeszcze zmodyfikować/poprawić? 
+* Dodać w `application.conf` możliwość modyfikacji parametrów tworzenia (replikacja i partycjonowanie),
+  każdego z topików z osobna.
 * Poprawić działanie UriSearcher, tak aby lepiej (?) wyłuskiwał linki z smsów.
 * Dodać łączenie przez SSL. 
 * Dodanie logowania z Log4j2. 
