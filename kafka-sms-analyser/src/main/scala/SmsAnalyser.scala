@@ -17,6 +17,9 @@ import io.github.malyszaryczlowiek.util.UriSearcher
 
 //import play.api.Configuration.logger.logger
 
+import sttp.client3._
+import sttp.model.StatusCode
+import upickle.default._
 
 
 
@@ -25,6 +28,17 @@ class SmsAnalyser {
 
 
   def main(args: Array[String]): Unit = {
+
+
+    // define types for easier managing streams
+    type Uri              = String
+    type UriList          = List[Uri]
+    type Nulll            = String    // this type means string is null for sure
+    type UserNum          = String
+    type NullOrUserNum    = String
+    type UserStatusOrNull = String
+    type Confidence       = String
+    type ConfidenceOrNull = String    // may be confidence or null string
 
 
     // Define properties for KafkaStreams object
@@ -51,8 +65,8 @@ class SmsAnalyser {
 
 
 
-    // wczytuję strumień z sms'ami
-    val smsStream: KStream[String, Sms] = builder.stream( smsInputTopicName )(Consumed `with` (stringSerde, smsSerdes))
+    // pool stream with sms. key is null
+    val smsStream: KStream[Nulll, Sms] = builder.stream( smsInputTopicName )(Consumed `with` (stringSerde, smsSerde))
 
 
 
@@ -60,7 +74,7 @@ class SmsAnalyser {
     // wczytuję informację z użytkownikami i czy mają aktywną usługę
     // zapisuję to w globalną tabelę tak aby było dostępne pomiędzy wszytkie instancje aplikacji
     // w tej tabeli klucz to user number a wartość to boolean zapisany jako string z info czy ma aktywną usługę
-    val userTable: GlobalKTable[String, String] = builder.globalTable(
+    val userTable: GlobalKTable[UserNum, UserStatusOrNull] = builder.globalTable(
       userStatusTopicName,
       Materialized.as("user_table")(stringSerde,stringSerde)
     )(Consumed `with`(stringSerde, stringSerde))
@@ -71,11 +85,14 @@ class SmsAnalyser {
     // wczytuję informacje o stronach i ich confidence level
     // to też jest globalna tabela
     // tutaj kluczem jest uri a wartością jest confidence level
-    val uriTable: GlobalKTable[String, String] =
+    val uriTable: GlobalKTable[Uri, Confidence] =
       builder.globalTable(
         uriConfidenceTopicName,
         Materialized.as("uri_table")(stringSerde,stringSerde)
       )(Consumed `with`(stringSerde, stringSerde))
+
+
+    val uriToCheckStream: KStream[Uri, Uri] = builder.stream( uriToCheckTopicName )(Consumed `with` (stringSerde, stringSerde))
 
 
     val uriSearcher = new UriSearcher
@@ -94,10 +111,10 @@ class SmsAnalyser {
 
 
 
-    val smsWithUri: KStream[String, Sms] = splitSmsWithUriOrNot.apply("sms_with_uri")
+    val smsWithUri: KStream[Nulll, Sms] = splitSmsWithUriOrNot.apply("sms_with_uri")
 
 
-    val smsWithoutUri: KStream[String, Sms] = splitSmsWithUriOrNot.apply("sms_without_uri")
+    val smsWithoutUri: KStream[Nulll, Sms] = splitSmsWithUriOrNot.apply("sms_without_uri")
 
 
     val splitPhishingService = smsWithoutUri.split(Named.as( "split_phishing_service_turn_on_off_or_do_nothing"))
@@ -113,10 +130,10 @@ class SmsAnalyser {
       .noDefaultBranch()
 
 
-    val serviceNoChange: KStream[String, Sms] = splitPhishingService.apply("service_no_change")
+    val serviceNoChange: KStream[Nulll, Sms] = splitPhishingService.apply("service_no_change")
 
 
-    val changeService: KStream[String, Sms] = splitPhishingService.apply("change_service")
+    val changeService: KStream[Nulll, Sms] = splitPhishingService.apply("change_service")
 
 
     // we map our sms to user number who want to change service status.
@@ -131,11 +148,11 @@ class SmsAnalyser {
 
 
     // back to sms with uri
-    val smsUserNum: KStream[Sms, String] = smsWithUri.map( (nulll,sms) => (sms, sms.sender))
+    val smsUserNum: KStream[Sms, UserNum] = smsWithUri.map( (nulll,sms) => (sms, sms.sender))
 
 
 
-    val checkingUserService: KStream[Sms, String] = smsUserNum.leftJoin( userTable )(
+    val checkingUserService: KStream[Sms, NullOrUserNum] = smsUserNum.leftJoin( userTable )(
       // join using userNum
       (sms, userNum) => userNum,
       // if userStatus is null this means there is no user in table
@@ -153,25 +170,54 @@ class SmsAnalyser {
       }, Branched.as("protected"))
       .branch((sms, userStatus) => {
         // if userNum is not null and is false then user is not protected
-        // remember we only put "false" as value to user_status topic
+        // remember we only put "false" or null as value to user_status topic
         userStatus != null && userStatus == "false"
       }, Branched.as("not_protected"))
       .noDefaultBranch()
 
 
 
-    val smsWithUriProtected: KStream[Sms, String] = splitSmsProtectedOrNot.apply("protected")
-
-    val smsNotProtected1: KStream[Sms, String] = splitSmsProtectedOrNot.apply("not_protected")
+    val smsWithUriProtected: KStream[Sms, Nulll] = splitSmsProtectedOrNot.apply("protected")
 
 
-    val smsNotProtected2: KStream[String, Sms] = smsNotProtected1.map((sms, userNum) => (null, sms))
-
-    val smsNotProtectedAndNoUri: KStream[String, Sms] = smsNotProtected2.merge( serviceNoChange )
+    val smsWithUriNotProtected1: KStream[Sms, UserNum] = splitSmsProtectedOrNot.apply("not_protected")
 
 
+    val smsWithUriNotProtected2: KStream[Nulll, Sms] = smsWithUriNotProtected1.map((sms, userNum) => (null, sms))
 
-    // todo now i need implement mappiing of smsWithUriProtected stream
+
+    val smsNotProtectedAndNoUri: KStream[Nulll, Sms] = smsWithUriNotProtected2.merge( serviceNoChange )
+
+
+    val uriListInSms: KStream[Sms, UriList] = smsWithUriProtected.map((sms,nulll) => {
+      val uri: List[String] = uriSearcher.search( sms.message )
+      (sms,uri)
+    })
+
+
+    val uriStream: KStream[Uri, Uri] = smsUserNum.flatMap((sms, userNumm) => uriSearcher.search(sms.message).map(uri => (uri,uri)) )
+
+
+    val mergedUriStream: KStream[Uri, Uri] = uriToCheckStream.merge( uriStream )
+
+
+    val uriWithConfidenceOrNull: KStream[Uri, ConfidenceOrNull]  = mergedUriStream.leftJoin( uriTable )(
+      (uri,urii) => uri,
+      (uri, confidenceOrNulll) => confidenceOrNulll
+    )  // todo przy filtrowaniu muszę sprawdzić czy gdzieś jeszcze nie ma Named.as do wstawienia
+      // we filter only uri which are not contained in our uriTable (GlobalKTable)
+      .filter((uri, confidenceOrNull) => confidenceOrNull == null)
+      // most blocking operation. We call phishingApi for Confidence level of uri
+
+    // todo tuaj muszę zimplementować odpytywanie PhishingApi
+//      .map((uri, nulll) => {
+//
+//
+//
+//
+//        (uri, confidenceOrNull)
+//      })
+
 
 
 

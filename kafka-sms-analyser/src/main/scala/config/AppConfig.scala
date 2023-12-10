@@ -55,9 +55,17 @@ object AppConfig {
 
 
   /**
+   * topic where we put uri to check its confidence level
+   */
+  def uriToCheckTopicName: String = config.getString(s"kafka-broker.topic.uri-to-check-topic")
+
+  /**
    * number to switch on/off phishing service
     */
   def serviceNumber: String = config.getString(s"service-number")
+
+
+
 
 
 

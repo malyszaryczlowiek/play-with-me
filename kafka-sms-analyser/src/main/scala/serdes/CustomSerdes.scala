@@ -3,6 +3,6 @@ package serdes
 
 object CustomSerdes {
 
-  val smsSerdes = new SmsSerde
+  val smsSerde = new SmsSerde
 
 }
