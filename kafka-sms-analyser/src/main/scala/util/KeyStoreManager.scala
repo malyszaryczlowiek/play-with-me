@@ -21,11 +21,8 @@ class KeyStoreManager {
    *
    * @return
    */
-  def createKeyStore(): StoreCreation = {
-
-    val keystoreLocation = KafkaSSLConfig.SSL_KEYSTORE_LOCATION_CONFIG
-    val keyStorePassword = KafkaSSLConfig.SSL_KEYSTORE_PASSWORD_CONFIG.toCharArray
-
+  def createKeyStore(keystoreLocation: String      = KafkaSSLConfig.SSL_KEYSTORE_LOCATION_CONFIG,
+                     keyStorePassword: Array[Char] = KafkaSSLConfig.SSL_KEYSTORE_PASSWORD_CONFIG.toCharArray): StoreCreation = {
 
     val keyStoreFile: File = new File( keystoreLocation )
     // if keyStrore file does not exists we need create them
@@ -48,11 +45,8 @@ class KeyStoreManager {
    *
    * @return
    */
-  def createTrustStore(): StoreCreation = {
-
-    val storeLocation    = KafkaSSLConfig.SSL_TRUSTSTORE_LOCATION_CONFIG
-    val storePassword    = KafkaSSLConfig.SSL_TRUSTSTORE_PASSWORD_CONFIG.toCharArray
-
+  def createTrustStore( storeLocation: String      = KafkaSSLConfig.SSL_TRUSTSTORE_LOCATION_CONFIG,
+                        storePassword: Array[Char] = KafkaSSLConfig.SSL_TRUSTSTORE_PASSWORD_CONFIG.toCharArray): StoreCreation = {
 
     val keyStoreFile: File = new File( storeLocation )
     // if truststore file does not exists we need create them
