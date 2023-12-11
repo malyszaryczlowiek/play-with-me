@@ -1,7 +1,7 @@
 package io.github.malyszaryczlowiek
 
-import org.apache.kafka.common.config.TopicConfig
-import org.apache.kafka.streams.{KafkaStreams, StreamsConfig, Topology}
+import org.apache.kafka.common.config.{SslConfigs, TopicConfig}
+import org.apache.kafka.streams.{KafkaStreams, StreamsConfig, Topology, kstream}
 import org.apache.kafka.streams.scala.StreamsBuilder
 import org.apache.kafka.streams.scala.kstream.{Branched, BranchedKStream, Consumed, KStream, Materialized, Produced}
 import org.apache.kafka.streams.scala.serialization.Serdes.stringSerde
@@ -13,8 +13,10 @@ import model.{ConfidenceAndUriList, Sms, UriList}
 import serdes.CustomSerdes._
 
 import io.github.malyszaryczlowiek.kessengerlibrary.kafka.{Done, Error, TopicCreator, TopicSetup}
-import io.github.malyszaryczlowiek.util.UriSearcher
+import io.github.malyszaryczlowiek.util.{PhishingApiCaller, UriSearcher}
 import model.ConfidenceLevel._
+
+import org.apache.kafka.clients.CommonClientConfigs
 
 //import play.api.Configuration.logger.logger
 
@@ -44,8 +46,15 @@ class SmsAnalyser {
     // Define properties for KafkaStreams object
     val properties: Properties = new Properties()
     properties.put(StreamsConfig.APPLICATION_ID_CONFIG,    appId)
-    properties.put(StreamsConfig.BOOTSTRAP_SERVERS_CONFIG, kafkaBroker.servers)
-    properties.put(StreamsConfig.STATE_DIR_CONFIG,         kafkaBroker.fileStore)
+    properties.put(StreamsConfig.BOOTSTRAP_SERVERS_CONFIG, kafkaConfig.servers)
+    properties.put(StreamsConfig.STATE_DIR_CONFIG,         kafkaConfig.fileStore)
+    // security configs
+    properties.put(CommonClientConfigs.SECURITY_PROTOCOL_CONFIG, "SSL")
+    properties.put(SslConfigs.SSL_TRUSTSTORE_LOCATION_CONFIG, KafkaSSLConfig.SSL_TRUSTSTORE_LOCATION_CONFIG)
+    properties.put(SslConfigs.SSL_TRUSTSTORE_PASSWORD_CONFIG, KafkaSSLConfig.SSL_TRUSTSTORE_PASSWORD_CONFIG)
+    properties.put(SslConfigs.SSL_KEYSTORE_LOCATION_CONFIG,   KafkaSSLConfig.SSL_KEYSTORE_LOCATION_CONFIG)
+    properties.put(SslConfigs.SSL_KEYSTORE_PASSWORD_CONFIG,   KafkaSSLConfig.SSL_KEYSTORE_PASSWORD_CONFIG)
+    properties.put(SslConfigs.SSL_KEY_PASSWORD_CONFIG,        KafkaSSLConfig.SSL_KEY_PASSWORD_CONFIG)
 
 
     /*
@@ -120,7 +129,7 @@ class SmsAnalyser {
     val smsWithoutUri: KStream[Nulll, Sms] = splitSmsWithUriOrNot.apply("sms_without_uri")
 
 
-    val splitPhishingService = smsWithoutUri.split(Named.as( "split_phishing_service_turn_on_off_or_do_nothing"))
+    val splitPhishingService = smsWithoutUri.split( Named.as( "split_phishing_service_turn_on_off_or_do_nothing") )
       .branch((nulll, sms) => {
         // recipient must be different from defined in conf
         sms.recipient != serviceNumber
@@ -151,7 +160,7 @@ class SmsAnalyser {
 
 
     // back to sms with uri
-    val smsUserNum: KStream[Sms, UserNum] = smsWithUri.map( (nulll,sms) => (sms, sms.sender))
+    val smsUserNum: KStream[Sms, UserNum] = smsWithUri.map( (nulll,sms) => (sms, sms.sender), Named.as("sms_user_num"))
 
 
 
@@ -186,44 +195,46 @@ class SmsAnalyser {
     val smsWithUriNotProtected1: KStream[Sms, UserNum] = splitSmsProtectedOrNot.apply("not_protected")
 
 
-    val smsWithUriNotProtected2: KStream[Nulll, Sms] = smsWithUriNotProtected1.map((sms, userNum) => (null, sms))
+    val smsWithUriNotProtected2: KStream[Nulll, Sms] = smsWithUriNotProtected1.map(
+      (sms, userNum) => (null, sms),
+      Named.as("sms_with_uri_not_protected_2")
+    )
 
 
-    val smsNotProtectedAndNoUri: KStream[Nulll, Sms] = smsWithUriNotProtected2.merge( serviceNoChange )
+    val smsNotProtectedAndNoUri: KStream[Nulll, Sms] = smsWithUriNotProtected2.merge( serviceNoChange, Named.as("merge_sms_not_protected_and_no_uri") )
 
 
     val uriListInSms: KStream[Sms, UriList] = smsWithUriProtected.map((sms, nulll) => {
       val list: List[String] = uriSearcher.search( sms.message )
       val uriList: UriList = UriList(list)
       (sms, uriList )
-    })
+    }, Named.as("uri_list_in_sms"))
 
 
-    val uriStream: KStream[Uri, Uri] = smsUserNum.flatMap((sms, userNumm) => uriSearcher.search(sms.message).map(uri => (uri,uri)) )
+    val uriStream: KStream[Uri, Uri] = smsUserNum.flatMap(
+      (sms, userNumm) => uriSearcher.search(sms.message).map(uri => (uri,uri)),
+      Named.as("uri_stream")
+    )
 
 
-    val mergedUriStream: KStream[Uri, Uri] = uriToCheckStream.merge( uriStream )
+    val mergedUriStream: KStream[Uri, Uri] = uriToCheckStream.merge( uriStream, Named.as("merge_uri_stream") )
 
+    val serviceCaller = new PhishingApiCaller
 
     val uriWithConfidenceOrNull: KStream[Uri, ConfidenceOrNull]  = mergedUriStream.leftJoin( uriTable )(
       (uri,urii) => uri,
       (uri, confidenceOrNulll) => confidenceOrNulll
-    )  // todo przy filtrowaniu muszę sprawdzić czy gdzieś jeszcze nie ma Named.as do wstawienia
+    )
       // we filter only uri which are not contained in our uriTable (GlobalKTable)
-      .filter((uri, confidenceOrNull) => confidenceOrNull == null)
+      .filter((uri, confidenceOrNull) => confidenceOrNull == null, Named.as("")) // todo name it
       // most blocking operation. We call phishingApi for Confidence level of uri
-
-    // todo tutaj muszę zimplementować odpytywanie PhishingApi
-//      .map((uri, nulll) => {
-//
-//
-//
-//
-//        (uri, confidenceOrNull)
-//      })
+      .map((uri, nulll) => {
+        val confidenceOrNull = serviceCaller.check(uri, phishingService)
+        (uri, confidenceOrNull)
+      }, Named.as("uri_with_confidence_or_not"))
 
 
-    val mergedSmsWithUriList: KStream[Sms, UriList] = smsWithManyUriStream.merge(uriListInSms)
+    val mergedSmsWithUriList: KStream[Sms, UriList] = smsWithManyUriStream.merge(uriListInSms, Named.as("merged_sms_with_uri_list"))
 
 
     val smsConfidenceUriList: KStream[Sms, ConfidenceAndUriList] = mergedSmsWithUriList.leftJoin( uriTable )(
@@ -236,7 +247,7 @@ class SmsAnalyser {
 
 
     // now i split if confidence level is secure, unsecure or null
-    val splitSmsConfidenceUriList = smsConfidenceUriList.split(Named.as("sms_confidence_uri_list"))
+    val splitSmsConfidenceUriList = smsConfidenceUriList.split(Named.as("split_sms_confidence_uri_list"))
       .branch((sms, confidenceAndUriList) => {
         // we check if confidence of uriList is in uriTable
         // if is null we need to call phishing APi
@@ -263,14 +274,13 @@ class SmsAnalyser {
 
 
     val uriChecked: KStream[Sms, ConfidenceAndUriList] = nullConfidence.map((sms, confidenceAndUriList) => {
-
-      // todo tutaj napisać odpytywanie api
-      (sms, confidenceAndUriList )
-    })
-
+      val confidenceOrNull = serviceCaller.check( confidenceAndUriList.uriList.list.head, phishingService)
+      (sms, confidenceAndUriList.copy(confidence = confidenceOrNull) )
+    }, Named.as("uri_checked"))
 
 
-    val splitCheckedUri = uriChecked.split(Named.as("uri_checked_split"))
+
+    val splitCheckedUri = uriChecked.split( Named.as("split_uri_checked") )
       .branch((sms, confidenceAndUriList) => {
         // we check if confidence of head of uriList is secure or null if service is unavailable
         confidenceAndUriList.confidence == null || confidenceAndUriList.confidence == CONFIDENCE_LEVEL_UNSPECIFIED || secureConfidenceLevels.contains(confidenceAndUriList.confidence)
@@ -290,16 +300,19 @@ class SmsAnalyser {
     val uriCheckedButNotSecure: KStream[Sms, ConfidenceAndUriList] = splitCheckedUri.apply("confidence_is_not_secure")
 
 
-    val checkedUriIsSecureOrNull: KStream[Sms, ConfidenceAndUriList] = splitCheckedUri.apply("confidence_is_not_secure")
+    val checkedUriIsSecureOrNull: KStream[Sms, ConfidenceAndUriList] = splitCheckedUri.apply("confidence_is_secure_or_null")
 
 
 
-    val mergedNotSecureConfidence: KStream[Sms, ConfidenceAndUriList] = uriCheckedButNotSecure.merge(notSecureConfidence)
+    val mergedNotSecureConfidence: KStream[Sms, ConfidenceAndUriList] = uriCheckedButNotSecure.merge( notSecureConfidence,
+      Named.as("merged_not_secure_confidence")
+    )
 
 
     // here we remove head of list because was checked
     val uriListToCheck: KStream[Uri, Uri] = mergedNotSecureConfidence.flatMap(
       (sms, confidenceAndUriList) => confidenceAndUriList.uriList.list.tail.map(uri => (uri,uri))
+      , Named.as("uri_list_to_check")
     )
 
     // and subsequently send it to uri_to_check topic
@@ -307,14 +320,15 @@ class SmsAnalyser {
 
 
     // merging sms with secure first uri
-    val checkedUriSecured: KStream[Sms, ConfidenceAndUriList] = secureConfidence.merge(checkedUriIsSecureOrNull, Named.as("")) // todo nameit
+    val checkedUriSecured: KStream[Sms, ConfidenceAndUriList] = secureConfidence.merge(checkedUriIsSecureOrNull, Named.as("checked_secure_uri"))
 
     val checkedUriDeleted:  KStream[Sms, UriList] = checkedUriSecured.mapValues(
-      (sms, confidenceAndUriList) => UriList( confidenceAndUriList.uriList.list.tail )
+      (sms, confidenceAndUriList) => UriList( confidenceAndUriList.uriList.list.tail ),
+      Named.as("checked_uri_deleted")
     )
 
 
-    val splitUriListEmptyOrNot = checkedUriDeleted.split(Named.as("uri_list_empty_or_not"))
+    val splitUriListEmptyOrNot = checkedUriDeleted.split( Named.as("uri_list_empty_or_not") )
       .branch((sms, uriList) => uriList.list.nonEmpty , Branched.as("non_empty_uri_list"))
       .branch((sms, uriList) => uriList.list.isEmpty  , Branched.as("empty_uri_list"))
       .noDefaultBranch()
@@ -331,11 +345,11 @@ class SmsAnalyser {
 
 
     // sms with checked all uri (all safe) and ready to save to sms_output_topic
-    val processedSafeSms: KStream[Nulll, Sms] = emptyUriList.map((sms,_) => (null, sms), Named.as("")) // TODO ponazywać wszystkie mapowania
+    val processedSafeSms: KStream[Nulll, Sms] = emptyUriList.map((sms,_) => (null, sms), Named.as("processed_safe_sms"))
 
 
     // merging processed sms (with safe uri) with sms not protected and sms without uri.
-    val allSmsToSave: KStream[Nulll, Sms] = processedSafeSms.merge( smsNotProtectedAndNoUri , Named.as("")) // todo name it
+    val allSmsToSave: KStream[Nulll, Sms] = processedSafeSms.merge( smsNotProtectedAndNoUri , Named.as("all_sms_to_save"))
 
 
     // sending processed sms to sms_output_topic
@@ -343,10 +357,15 @@ class SmsAnalyser {
 
 
     val checkedUriWithConfidence: KStream[Uri, Confidence] = checkedUriIsSecureOrNull.map(
-      (sms, confidenceAndUriList) => (confidenceAndUriList.uriList.list.head, confidenceAndUriList.confidence),Named.as("") // todo name it
+      (sms, confidenceAndUriList) => (confidenceAndUriList.uriList.list.head, confidenceAndUriList.confidence),
+      Named.as("checked_uri_with_confidence")
     )
 
-    val uriConfidenceToSave: KStream[Uri, Confidence] = checkedUriWithConfidence.merge( uriWithConfidenceOrNull, Named.as("")) // todo name it
+    val uriConfidenceToSave: KStream[Uri, Confidence] = checkedUriWithConfidence.merge( uriWithConfidenceOrNull,
+      Named.as("merged_uri_confidence_to_save")
+    )
+    // remove all with null, we do not need them in topic
+    .filter((uri, confidence) => confidence != null, Named.as("uri_confidence_to_save_without_null"))
 
 
     // and we saving all new checked uris to topic for uriTable
@@ -403,8 +422,7 @@ class SmsAnalyser {
 
 
   /**
-   * na internal kafka broker tworzę dwa wymienione wyżej topici
-   * używam do tego API
+   *
    */
   private def createKafkaTopic(): Unit = {
 
@@ -414,10 +432,10 @@ class SmsAnalyser {
     )
 
     val uriConfidenceTopic =
-      TopicSetup( uriConfidenceTopicName , kafkaBroker.servers, kafkaBroker.partitionNum, kafkaBroker.replicationFactor, topicConfig)
+      TopicSetup( uriConfidenceTopicName , kafkaConfig.servers, kafkaConfig.partitionNum, kafkaConfig.replicationFactor, topicConfig)
 
     val userActiveServiceTopic =
-      TopicSetup( userStatusTopicName , kafkaBroker.servers, kafkaBroker.partitionNum, kafkaBroker.replicationFactor, topicConfig)
+      TopicSetup( userStatusTopicName , kafkaConfig.servers, kafkaConfig.partitionNum, kafkaConfig.replicationFactor, topicConfig)
 
     /*
     W tym miejscu tworzymy topici na internal kafka broker.
@@ -441,3 +459,39 @@ class SmsAnalyser {
   }
 
 }
+
+
+
+
+/*
+all Named.as() names: --> no duplicates
+
+user_table
+uri_table
+split_sms_uri_or_not
+split_phishing_service_turn_on_off_or_do_nothing
+user_status_changes
+sms_user_num
+split_sms_protected_or_not
+sms_with_uri_not_protected_2
+merge_sms_not_protected_and_no_uri
+uri_list_in_sms
+uri_stream
+merge_uri_stream
+uri_with_confidence_or_not
+merged_sms_with_uri_list
+split_sms_confidence_uri_list
+uri_checked
+split_uri_checked
+merged_not_secure_confidence
+merged_uri_confidence_to_save
+uri_confidence_to_save_without_null
+uri_list_to_check
+checked_secure_uri
+checked_uri_deleted
+uri_list_empty_or_not
+processed_safe_sms
+all_sms_to_save
+checked_uri_with_confidence
+uri_confidence_to_save
+ */

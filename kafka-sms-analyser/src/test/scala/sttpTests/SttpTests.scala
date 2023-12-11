@@ -1,6 +1,9 @@
 package io.github.malyszaryczlowiek
 package sttpTests
 
+
+import config.AppConfig.PhishingService
+import io.github.malyszaryczlowiek.util.PhishingApiCaller
 import org.scalatest.funsuite.AnyFunSuite
 import sttp.client3._
 import sttp.model.StatusCode
@@ -57,8 +60,17 @@ class SttpTests extends AnyFunSuite {
       case Right(string) =>
         println(s"$string")
     }
-
-
   }
+
+
+  test("testing phishing api caller") {
+    val caller = new PhishingApiCaller
+    val confidence = caller.check("https://google.com/", PhishingService(googleApi))
+    assert( confidence == null, "without authentication should return null")
+  }
+
+
+
+
 
 }

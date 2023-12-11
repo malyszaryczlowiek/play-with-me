@@ -12,7 +12,9 @@ Zakładam, ze w SMSie może być więcej niż jeden URI.
 
 # Architektura
 Architektura tego rozwiązania zakłada istnienie klastra brokerów Kafki z którego można zaciągać dane z SMSami, przechowywać
-informacje o statusie ochrony użytkownika, poziomie bezpieczeństwa danego URI oraz na który ma trafić SMSowy output. 
+informacje o statusie ochrony użytkownika, poziomie bezpieczeństwa danego URI oraz na który ma trafić SMSowy output z aplikacji. 
+
+![Architecture](architecture.jpeg)
 
 
 
@@ -41,14 +43,19 @@ I tak:
   * są wysłane do użytkowników z włączoną ochroną i zawierają linki z Confidence Level maksymalnie na poziomie `LOW`,
 * `user_status` - Ponieważ w założeniach przyjąłem, że użytkownik na starcie ma zapewnioną ochronę, to nie jest konieczne
   przechowywanie informacji o użytkownikach z aktywną usługą. Dlatego w tym topiku przechowywane są informacje tylko o 
-  użytkownikach mających wyłączoną usługę. Takie rozwiązanie jest korzystne z dwóch punktów widzenia. Raz, że mniej rekordów
-  do przeszukania, dwa mniej danych przechowujemy na brokerze. W topiku są dane w postaci klucz to `user_num` a wartość
-  to stringowy `"false"` lub `null`. Ponieważ dane z tego topika są zaciągane do GlobalKTable to wartość `null` kasuje nam ten
-  rekord z tabeli co jest jednoznaczne z ponowną aktywacją usługi przez użytkownika.  
-* `uri_confidence_level` - 
+  użytkownikach mających wyłączoną usługę. Takie rozwiązanie jest korzystne z dwóch powodów. Po pierwsze, mniej rekordów będzie 
+  do przeszukania, po drugie, mniej danych przechowujemy na brokerze, co przy restarcie aplikacji będzie powodowało szybsze jej
+  uruchomienie. W topiku dane są w postaci klucz to `user_num` a wartość
+  to stringowy `"false"` lub `null`. Dane są zaciągane do obiektu GlobalKTable co oznacza, że są one tak samo rozdysponowane
+  pomiędzy wszystkie egzemplarze uruchomionej aplikacji. W przypadku gdy użytkownik wyłącza ochronę do topika zapisywany jest
+  rekord: w postaci klucz `user_num` a wartość `"false"`. Ponowne włączenie usługi spowoduje zapisanie do topica rekordu z
+  `null`em jako wartością. To automatycznie usuwa usera z GlobalKTable. 
+* `uri_confidence_level` - topik w którym przechowujemy informację o URI (klucz) i jego *Confidence Level* (wartość). Obie
+  dane są przechowywane w postaci stringów. Dane są wczytywane do GlobalKTable dzięki czemu wszystkie instancje aplikacji
+  mają taką samą postać tej tabeli.  
 * `sms_with_many_uri` -  jest to *pętlowy* topik, który służy nam do iteracyjnego sprawdzania wszystkich liknków znalezionych 
   w SMSie. Dzieje się tak do momentu, aż któryś z linków okaże się niebezpieczny wtedy taki SMS wypada z obiegu 
-  (wchodzą tam tylko SMSy z URI i aktywną ochroną) a pozostałe linki z SMSa trafiają do topica `uri_to_check`, żeby 
+  (są w nim tylko SMSy z URI i aktywną ochroną) a pozostałe linki z SMSa trafiają do topica `uri_to_check`, żeby 
   zostały sprawdzone, i nabudowywały nam naszą tablicę `uri_table`.
 * `uri_to_check` - jest to topic do którego trafiają adresy URI pochodzące z SMSów użytkowników z włączoną ochroną,
   które to SMSy zostały odrzucone bo nieostatni znaleziony w wiadomości link był niebezpieczny. Takie URI są 
@@ -56,15 +63,6 @@ I tak:
   sprawdzony status. Status ten następnie trafi do tejże tablicy. 
 
 
-
-
-
-
-
-Przypadek optymistyczny
-
-Przypadek pesymistyczny - nie działa phishing API
-W tym przypadku 
 
 # Uruchomienie
 TODO

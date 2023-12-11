@@ -8,18 +8,12 @@ import com.typesafe.config.{Config, ConfigFactory}
 class AppConfig
 object AppConfig {
 
-  // private val logger: Logger = LogManager.getLogger(classOf[AppConfig])
-
-  //logger.trace(s"AppConfig started.")
 
   private val config: Config = ConfigFactory.load("application.conf").getConfig("kafka-sms-analyser")
-  // logger.trace(s"Loading configuration from application.conf.")
 
   def appId: String       = config.getString(s"application-id")
 
-
-
-  val kafkaBroker: KafkaConfig = KafkaConfig(
+  val kafkaConfig: KafkaConfig = KafkaConfig(
     config.getString(s"kafka-broker.servers"),
     config.getString(s"file-store"),
     config.getInt("topic-partition-num"),
@@ -27,8 +21,15 @@ object AppConfig {
   )
 
 
-  // topics to create
+  case class PhishingService(server: String, headers: Map[String, String] = Map.empty)
 
+  val phishingService: PhishingService = PhishingService(phishingServiceServer, Map(phishingServiceHeader -> phishingServiceToken))
+
+  private def phishingServiceServer: String = config.getString(s"phishing-service.server")
+  private def phishingServiceHeader: String = config.getString(s"phishing-service.header")
+  private def phishingServiceToken: String = config.getString(s"phishing-service.token")
+
+  // topics to create
 
   /**
    * topic where we keep information about uri confidence status
@@ -75,22 +76,18 @@ object AppConfig {
 
 
 
-  def phishingServiceServer: String = config.getString(s"phishing-service.server")
 
-  def phishingServiceHeader: String = config.getString(s"phishing-service.header")
+  object KafkaSSLConfig {
 
-  def phishingServiceToken: String = config.getString(s"phishing-service.token")
+    private val sslConfig = config.getConfig("kafka-security.protocol.ssl")
 
+    def SSL_TRUSTSTORE_LOCATION_CONFIG: String = sslConfig.getString("truststore-location")
+    def SSL_TRUSTSTORE_PASSWORD_CONFIG: String = sslConfig.getString("truststore-password")
+    def SSL_KEYSTORE_LOCATION_CONFIG: String   = sslConfig.getString("keystore-location")
+    def SSL_KEYSTORE_PASSWORD_CONFIG: String   = sslConfig.getString("keystore-password")
+    def SSL_KEY_PASSWORD_CONFIG: String        = sslConfig.getString("key-password")
 
-
-
-
-
-
-
-
-//   val analysisDir: String = config.getString("output-analysis-dir")
-
+  }
 
 
 

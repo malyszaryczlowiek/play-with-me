@@ -34,8 +34,8 @@ class SerdeTests extends AnyFunSuite {
 
   test("test if throw NullPointerException or check second condition.") {
     val confidenceAndUriList: ConfidenceAndUriList = ConfidenceAndUriList(null, UriList(List.empty[String]))
-    // confidenceAndUriList == null || confidenceAndUriList.confidence == CONFIDENCE_LEVEL_UNSPECIFIED
-    confidenceAndUriList.confidence == CONFIDENCE_LEVEL_UNSPECIFIED || confidenceAndUriList == null
+    assert( confidenceAndUriList.confidence == null || confidenceAndUriList.confidence == CONFIDENCE_LEVEL_UNSPECIFIED )
+    assert( confidenceAndUriList.confidence == CONFIDENCE_LEVEL_UNSPECIFIED || confidenceAndUriList.confidence == null )
   }
 
 }
