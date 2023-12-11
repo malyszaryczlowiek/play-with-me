@@ -57,7 +57,7 @@ class KeyStoreManager {
     val keyStoreFile: File = new File( storeLocation )
     // if truststore file does not exists we need create them
     if (!keyStoreFile.exists()) {
-      val ks: KeyStore = KeyStore.getInstance("pkcs12")
+      val ks: KeyStore = KeyStore.getInstance( KeyStore.getDefaultType ) //  or "pkcs12"
       ks.load(null, storePassword)
 
       Using(new FileInputStream( KafkaSSLConfig.SSL_CERTIFICATE )) {

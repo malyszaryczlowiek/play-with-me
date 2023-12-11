@@ -41,7 +41,7 @@ class SmsAnalyser {
 //    val keyManager = new KeyStoreManager
 //    val keyRes = keyManager.createKeyStore()
 //    val trsRes = keyManager.createTrustStore()
-//    // if creating keyStore and/or trustStore impossible close app
+//    // if creating keyStore and/or trustStore impossible then close app
 //    if (keyRes == Error || trsRes == Error ) System.exit(555)
 
 
@@ -68,7 +68,7 @@ class SmsAnalyser {
     val err = createKafkaTopic()
 
 
-    // If not required topics are present in broker we cannot start application
+    // If required topics are  not created or present in broker we cannot start application
     if (err > 0) {
       // logger.error(s"Not all topic created or already exists.")
       System.exit( err )
