@@ -1,13 +1,18 @@
 # Założenia
 
+Zakładam, że SMSy trafiają do systemu kolejkowego typu Kafka. 
+
 Zakładam, że każdy użytkownik na starcie ma taką ochronę uruchomioną defaultowo. I że nie wymaga ona włączenia. Po jej
 wyłączeniu można ją normalnie włączyć tak jak zostało to narzucone w treści zadania. 
 
 Zakładam, że dane wejściowym topicu są przechowywane w schemacie: klucz to `null` a wartość to SMS zapisany jako JSON 
 string. Nullowanie klucza ma tę cechę, że *round-robin'uje* nam dane między partycjami topika, choć w tym przypadku nie 
-ma to żadnego znacznia.
+będzie to miało żadnego znacznia.
 
 Zakładam, ze w SMSie może być więcej niż jeden URI.
+
+Zakładam również, że w przypadku gdy użytkownik ma włączoną ochronę, w smsie jest Uri, w naszej *bazie* nie ma informacji 
+o tym uri a servis nie odpowiada, to, że taki sms przechodzi dalej, przy czym uri trawia do ponownego sprawdzenia.  
 
 
 # Architektura
@@ -15,8 +20,6 @@ Architektura tego rozwiązania zakłada istnienie klastra brokerów Kafki z któ
 informacje o statusie ochrony użytkownika, poziomie bezpieczeństwa danego URI oraz na który ma trafić SMSowy output z aplikacji. 
 
 ![Architecture](architecture.jpeg)
-
-
 
 ## Korzyści z takiej architektury
 Pełna skalowalność. Możemy mieć tyle egzemplarzy tej aplikacji ile wynosi 
@@ -35,7 +38,7 @@ Przedstawiona topologia wymaga oprócz topiku wejściowego `sms_input` utworzeni
 Topiki te są tworzone automatycznie przy uruchamianiu aplikacji, a ich parametry takie jak stopień replikacji i
 stopień partycjonownaia można skonfigurować w pliku konfiguracyjnym `application.conf`. Nie można natomiast modyfikować
 ich czasu retencji. Jest on ustawiony na nieskończoność. Jest to zabezpieczenie przed gubieniem danych. 
-I tak:
+I tak przy uruchamianiu aplikacji tworzymy dodatkowo następujące topiki:
 
 * `sms_output` - topic na który będą trafiały wszystkie smsy, które:
   * są wysłane do użytkowników z wyłączoną ochroną,
@@ -45,8 +48,8 @@ I tak:
   przechowywanie informacji o użytkownikach z aktywną usługą. Dlatego w tym topiku przechowywane są informacje tylko o 
   użytkownikach mających wyłączoną usługę. Takie rozwiązanie jest korzystne z dwóch powodów. Po pierwsze, mniej rekordów będzie 
   do przeszukania, po drugie, mniej danych przechowujemy na brokerze, co przy restarcie aplikacji będzie powodowało szybsze jej
-  uruchomienie. W topiku dane są w postaci klucz to `user_num` a wartość
-  to stringowy `"false"` lub `null`. Dane są zaciągane do obiektu GlobalKTable co oznacza, że są one tak samo rozdysponowane
+  uruchomienie. W topiku dane są w postaci klucz to `user_num` string a wartość
+  to stringowy `"false"` lub pusta referencja `null`. Dane są zaciągane do obiektu GlobalKTable co oznacza, że są one tak samo rozdysponowane
   pomiędzy wszystkie egzemplarze uruchomionej aplikacji. W przypadku gdy użytkownik wyłącza ochronę do topika zapisywany jest
   rekord: w postaci klucz `user_num` a wartość `"false"`. Ponowne włączenie usługi spowoduje zapisanie do topica rekordu z
   `null`em jako wartością. To automatycznie usuwa usera z GlobalKTable. 
@@ -62,16 +65,35 @@ I tak:
   następnie ponownie zaciągane do aplikacji i jeśli nie ma ich w naszej tablicy `uriTable` to dla nich też zostanie 
   sprawdzony status. Status ten następnie trafi do tejże tablicy. 
 
-
+W celu zmniejszenia ilości przechowywanych na brokerze danych, można by takie topiki jak `sms_with_many_uri` i `uri_to_check` skonfigurować
+z ograniczonym czasem retencji.
 
 # Uruchomienie
 TODO
 
+
+## SSL
+Aplikacja defaultowo nie łączy się jeszcze przez SSL.
+
+Aby to umożliwić konieczne jest wykonanie kilku kroków:
+* umieszczenie odpowiedniego certyfikatu w folderze `play-with-me/kafka-sms-analyser`, tak aby mógł on być zaciągnięty 
+  przez Dockera do tworzonego obrazu. 
+* odkomentowania linijki w Dockerfile przekopiowującej certyfikat. Nazwa certyfikatu w linijce powinna być zgodna z
+  nazwą pliku. (certyfikat będzie w obrazie w tym samym folderze co JAR tak aby aplikcaja mogła go sobie łatwo znaleźć)
+* zmiany parametru `kafka-sms-analyser.kafka-security.protocol.ssl.certificate` w pliku `application.conf` na nazwę pliku
+  certyfikatu, tak aby aplikacja mogła go wczytać i umieścić w `trustStore.jks`.
+* odkomentowania danych konfiguracyjnych w metodzie 
+  [`main()`](https://github.com/malyszaryczlowiek/play-with-me/blob/1-dev-branch/kafka-sms-analyser/src/main/scala/SmsAnalyser.scala) 
+  oraz w obiekcie 
+  [`TopicCreator`](https://github.com/malyszaryczlowiek/play-with-me/blob/1-dev-branch/kafka-sms-analyser/src/main/scala/util/TopicCreator.scala)
+* Aplikacja przy uruchomieniu tworzy oba pliki (`keyStore.jks` i `trustStore.jks`) jednocześnie wstawiając certyfikat do
+  `trustStore.jks`.
+
+Takie rozwiązanie SSL zdążyłem zaimplementować, ale nie zdążyłem przetestować czy w ogóle zadziała, dlatego jest ono w kodzie
+źródłowym zakomentowane. Bardzo możliwe, że coś w takim rozwiązaniu jest nie tak.  
+
 # What TODO
 Co można by jeszcze zmodyfikować/poprawić? 
-* Dodać w `application.conf` możliwość modyfikacji parametrów tworzenia (replikacja i partycjonowanie),
-  każdego z topików z osobna.
 * Poprawić działanie UriSearcher, tak aby lepiej (?) wyłuskiwał linki z smsów.
-* Dodać łączenie przez SSL. 
 * Dodanie logowania z Log4j2. 
-
+* i pewnie jeszcze kilka rzeczy

@@ -50,7 +50,7 @@ class UpicleTests extends AnyFunSuite {
 
 
   test("testing seq of strings") {
-    // import upickle.default._ required
+    // commented line causes exception in seq case
     // implicit val readWriter: ReadWriter[Seq[String]] = macroRW[Seq[String]]
     val li = List("")
     val parsed = write(li)

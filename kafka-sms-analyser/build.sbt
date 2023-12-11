@@ -18,7 +18,7 @@ lazy val root = (project in file("."))
 
       // Own library
       // https://github.com/malyszaryczlowiek/kessenger-lib
-      "io.github.malyszaryczlowiek" %% "kessenger-lib" % "0.3.26",
+      // "io.github.malyszaryczlowiek" %% "kessenger-lib" % "0.3.26",
 
 
       // to parsing application.conf

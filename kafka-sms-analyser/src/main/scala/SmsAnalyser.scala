@@ -1,34 +1,27 @@
 package io.github.malyszaryczlowiek
 
-import org.apache.kafka.common.config.{SslConfigs, TopicConfig}
-import org.apache.kafka.streams.{KafkaStreams, StreamsConfig, Topology, kstream}
+import org.apache.kafka.common.config.SslConfigs
+import org.apache.kafka.clients.CommonClientConfigs
+import org.apache.kafka.streams.{KafkaStreams, StreamsConfig, Topology}
 import org.apache.kafka.streams.scala.StreamsBuilder
-import org.apache.kafka.streams.scala.kstream.{Branched, BranchedKStream, Consumed, KStream, Materialized, Produced}
+import org.apache.kafka.streams.scala.kstream.{Branched, Consumed, KStream, Materialized, Produced}
 import org.apache.kafka.streams.scala.serialization.Serdes.stringSerde
 import org.apache.kafka.streams.kstream.{GlobalKTable, Named}
 
 import java.util.Properties
 import config.AppConfig._
+import config.AppConfig.Topics._
 import model.{ConfidenceAndUriList, Sms, UriList}
-import serdes.CustomSerdes._
-
-import io.github.malyszaryczlowiek.kessengerlibrary.kafka.{Done, Error, TopicCreator, TopicSetup}
-import io.github.malyszaryczlowiek.util.{PhishingApiCaller, UriSearcher}
 import model.ConfidenceLevel._
-
-import org.apache.kafka.clients.CommonClientConfigs
-
+import serdes.CustomSerdes._
+import util.{KeyStoreManager, PhishingApiCaller, TopicCreator, UriSearcher}
+import util.TopicCreator.{Done, Error}
 //import play.api.Configuration.logger.logger
 
-import sttp.client3._
-import sttp.model.StatusCode
-import upickle.default._
 
 
 
 class SmsAnalyser {
-
-
 
   def main(args: Array[String]): Unit = {
 
@@ -43,24 +36,43 @@ class SmsAnalyser {
     type ConfidenceOrNull = String    // may be confidence or null string
 
 
+    // uncomment to create both files required for SSL communication
+
+//    val keyManager = new KeyStoreManager
+//    val keyRes = keyManager.createKeyStore()
+//    val trsRes = keyManager.createTrustStore()
+//    // if creating keyStore and/or trustStore impossible close app
+//    if (keyRes == Error || trsRes == Error ) System.exit(555)
+
+
+
     // Define properties for KafkaStreams object
     val properties: Properties = new Properties()
     properties.put(StreamsConfig.APPLICATION_ID_CONFIG,    appId)
     properties.put(StreamsConfig.BOOTSTRAP_SERVERS_CONFIG, kafkaConfig.servers)
     properties.put(StreamsConfig.STATE_DIR_CONFIG,         kafkaConfig.fileStore)
-    // security configs
-    properties.put(CommonClientConfigs.SECURITY_PROTOCOL_CONFIG, "SSL")
-    properties.put(SslConfigs.SSL_TRUSTSTORE_LOCATION_CONFIG, KafkaSSLConfig.SSL_TRUSTSTORE_LOCATION_CONFIG)
-    properties.put(SslConfigs.SSL_TRUSTSTORE_PASSWORD_CONFIG, KafkaSSLConfig.SSL_TRUSTSTORE_PASSWORD_CONFIG)
-    properties.put(SslConfigs.SSL_KEYSTORE_LOCATION_CONFIG,   KafkaSSLConfig.SSL_KEYSTORE_LOCATION_CONFIG)
-    properties.put(SslConfigs.SSL_KEYSTORE_PASSWORD_CONFIG,   KafkaSSLConfig.SSL_KEYSTORE_PASSWORD_CONFIG)
-    properties.put(SslConfigs.SSL_KEY_PASSWORD_CONFIG,        KafkaSSLConfig.SSL_KEY_PASSWORD_CONFIG)
+
+    // SSL security configs uncomment when all SSL Settings done, but check first SSL notes in README.md
+
+//    properties.put(CommonClientConfigs.SECURITY_PROTOCOL_CONFIG, KafkaSSLConfig.SECURITY_PROTOCOL_CONFIG)
+//    properties.put(SslConfigs.SSL_TRUSTSTORE_LOCATION_CONFIG,    KafkaSSLConfig.SSL_TRUSTSTORE_LOCATION_CONFIG)
+//    properties.put(SslConfigs.SSL_TRUSTSTORE_PASSWORD_CONFIG,    KafkaSSLConfig.SSL_TRUSTSTORE_PASSWORD_CONFIG)
+//    properties.put(SslConfigs.SSL_KEYSTORE_LOCATION_CONFIG,      KafkaSSLConfig.SSL_KEYSTORE_LOCATION_CONFIG)
+//    properties.put(SslConfigs.SSL_KEYSTORE_PASSWORD_CONFIG,      KafkaSSLConfig.SSL_KEYSTORE_PASSWORD_CONFIG)
+//    properties.put(SslConfigs.SSL_KEY_PASSWORD_CONFIG,           KafkaSSLConfig.SSL_KEY_PASSWORD_CONFIG)
 
 
     /*
     Create required topics to save analyses.
      */
-    createKafkaTopic()
+    val err = createKafkaTopic()
+
+
+    // If not required topics are present in broker we cannot start application
+    if (err > 0) {
+      // logger.error(s"Not all topic created or already exists.")
+      System.exit( err )
+    }
 
 
     // define builder
@@ -226,7 +238,7 @@ class SmsAnalyser {
       (uri, confidenceOrNulll) => confidenceOrNulll
     )
       // we filter only uri which are not contained in our uriTable (GlobalKTable)
-      .filter((uri, confidenceOrNull) => confidenceOrNull == null, Named.as("")) // todo name it
+      .filter((uri, confidenceOrNull) => confidenceOrNull == null, Named.as("sms_filtered_before_api_call"))
       // most blocking operation. We call phishingApi for Confidence level of uri
       .map((uri, nulll) => {
         val confidenceOrNull = serviceCaller.check(uri, phishingService)
@@ -407,7 +419,7 @@ class SmsAnalyser {
         case e: Throwable =>
           // logger.error(s"Error during Streams starting: ${e.toString}.")
           continue = false
-          System.exit(1)
+          System.exit(333)
       }
       // logger.trace(s"SmsAnalyser started.")
       Thread.sleep(120_000) // two minutes sleep.
@@ -424,39 +436,54 @@ class SmsAnalyser {
   /**
    *
    */
-  private def createKafkaTopic(): Unit = {
+  private def createKafkaTopic(): Int = {
 
-    val topicConfig = Map(
-      TopicConfig.CLEANUP_POLICY_CONFIG -> TopicConfig.CLEANUP_POLICY_DELETE,
-      TopicConfig.RETENTION_MS_CONFIG -> "-1" // keep all logs forever
-    )
+    var err = 0
 
-    val uriConfidenceTopic =
-      TopicSetup( uriConfidenceTopicName , kafkaConfig.servers, kafkaConfig.partitionNum, kafkaConfig.replicationFactor, topicConfig)
+    TopicCreator.createTopic(userStatusTopic) match {
+      case Done(msg) =>
+      // logger.info(s"Topic '$userStatusTopicName' created")
+      case Error(error) =>
+        err += 1
+      // logger.error(s"Creation topic '$userStatusTopicName' failed with error: $error")
+    }
 
-    val userActiveServiceTopic =
-      TopicSetup( userStatusTopicName , kafkaConfig.servers, kafkaConfig.partitionNum, kafkaConfig.replicationFactor, topicConfig)
-
-    /*
-    W tym miejscu tworzymy topici na internal kafka broker.
-    W przypadku ponownego uruchomienia aplikacji nie ma problemu,
-    że topici istnieją po prostu zostanie zwrócony kafka.Error
-    i zostanie to zapsane do logów
-     */
-    TopicCreator.createTopic(uriConfidenceTopic) match {
-      case Done =>
+    TopicCreator.createTopic( uriConfidenceLevelTopic ) match {
+      case Done(msg) =>
         // logger.info(s"Topic '$uriConfidenceTopicName' created")
       case Error(error) =>
+        err += 1
         // logger.error(s"Creation topic '$uriConfidenceTopicName' failed with error: $error")
     }
 
-    TopicCreator.createTopic(userActiveServiceTopic) match {
-      case Done =>
-        // logger.info(s"Topic '$userStatusTopicName' created")
+    TopicCreator.createTopic( uriToCheckTopic ) match {
+      case Done(msg) =>
+      // logger.info(s"Topic '$uriConfidenceTopicName' created")
       case Error(error) =>
-        // logger.error(s"Creation topic '$userStatusTopicName' failed with error: $error")
+        err += 1
+      // logger.error(s"Creation topic '$uriConfidenceTopicName' failed with error: $error")
     }
+
+    TopicCreator.createTopic( smsWithManyUriTopic ) match {
+      case Done(msg) =>
+      // logger.info(s"Topic '$userStatusTopicName' created")
+      case Error(error) =>
+        err += 1
+      // logger.error(s"Creation topic '$userStatusTopicName' failed with error: $error")
+    }
+
+    TopicCreator.createTopic( smsOutputTopic ) match {
+      case Done(msg) =>
+      // logger.info(s"Topic '$userStatusTopicName' created")
+      case Error(error) =>
+        err += 1
+      // logger.error(s"Creation topic '$userStatusTopicName' failed with error: $error")
+    }
+
+    err
   }
+
+
 
 }
 
@@ -494,4 +521,5 @@ processed_safe_sms
 all_sms_to_save
 checked_uri_with_confidence
 uri_confidence_to_save
+filtered_before_api_call
  */
