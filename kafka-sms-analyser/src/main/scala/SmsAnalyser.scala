@@ -31,7 +31,6 @@ object SmsAnalyser {
     type Uri              = String
     type Nulll            = String    // this type means string is null for sure
     type UserNum          = String
-    // type UserNumOrNull    = String
     type UserStatus       = String
     type UserStatusOrNull = String
     type Confidence       = String
@@ -94,9 +93,9 @@ object SmsAnalyser {
 
 
 
-    // wczytuję informację z użytkownikami i czy mają aktywną usługę
-    // zapisuję to w globalną tabelę tak aby było dostępne pomiędzy wszytkie instancje aplikacji
-    // w tej tabeli klucz to user number a wartość to boolean zapisany jako string z info czy ma aktywną usługę
+    // pool data with users and his status
+    // if user has "false" as a value this means protecting service is inactive
+    // if user has null or user is not present then service is active
     val userTable: GlobalKTable[UserNum, UserStatusOrNull] = builder.globalTable(
       userStatusTopicName,
       Materialized.as("user_table")(stringSerde,stringSerde)
@@ -105,9 +104,7 @@ object SmsAnalyser {
 
 
 
-    // wczytuję informacje o stronach i ich confidence level
-    // to też jest globalna tabela
-    // tutaj kluczem jest uri a wartością jest confidence level
+    // pool data with uri and its confidence level
     val uriTable: GlobalKTable[Uri, Confidence] =
       builder.globalTable(
         uriConfidenceTopicName,

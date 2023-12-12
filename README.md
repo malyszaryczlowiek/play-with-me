@@ -33,6 +33,13 @@ dolnego rogu, gdzie znajduje się topic wejściowy z sms'ami `sms_input`. Nazwy 
 dzięki czemu łatwiej jest śledzić przepływ danych. Wbrew pozorom, implementacja tej topologii to mniej niż 200 linii kodu. 
 
 ![Topologia](topology.jpeg)
+
+> WAŻNE !!!
+> 
+> Na przedstawionym schemacie użyłem metody `split()`. W toku uruchomienia aplikacji metoda ta wyrzucała wyjątek:
+> `Exception in thread "main" java.util.NoSuchElementException: key not found: ` (błąd w api kafki sterams (?))
+> dlatego każdy `split()` został zastąpiony dwiema lub trzema metodami `filter()`. 
+> Dla czytelności schematu nie poprawiałem tego. 
  
 Przedstawiona topologia wymaga oprócz topiku wejściowego `sms_input` utworzenia kilku dodatkowych topików.
 Topiki te są tworzone automatycznie przy uruchamianiu aplikacji, a ich parametry takie jak stopień replikacji i
@@ -68,8 +75,58 @@ I tak przy uruchamianiu aplikacji tworzymy dodatkowo następujące topiki:
 W celu zmniejszenia ilości przechowywanych na brokerze danych, można by takie topiki jak `sms_with_many_uri` i `uri_to_check` skonfigurować
 z ograniczonym czasem retencji.
 
+
+# Testowanie aplikacji
+Do testów przygotowałem mini środowisko testowe polegające na zbudowaniu i uruchominiu trzech contenerów (zookeeper, kafka-broker
+i ta aplikacja) przy użyciu docker compose.
+
+Aby je uruchomić należy nadać prawa wykonalności skryptowi `runDev`:
+
+```zsh
+chmod +x runDev
+```
+
+a następnie uruchomić ten skrypt:
+
+```zsh
+./runDev
+```
+
+spowoduje to utworzenie pliku JAR tej aplikacji i zbudowanie potrzebnych obrazów i kontenerów.
+
+Po uruchominiu się środowiska można przetestować przechodzenie smsów przez aplikację. W tym celu należy otworzyć nowe
+okno konsoli i uruchomić skrypt pozwalający na obserwację przechodzących przez aplikację smsów
+
+```zsh
+./topicContent sms_output
+```
+
+gdzie `sms_output` to topic do którego trafiają przeanalizowane smsy. Można też monitorować pozostałe topiki uruchamiając
+skrypt w oddzielnych oknach terminala podając jako argument nazwę odpowiedniego topica.
+
+Aby *wysłać* sms'a należy uruchomić w innym oknie terminala skrypt:
+
+```zsh
+./smsSender sms_input
+```
+
+gdzie `sms_input` to topic wejściowy smsów do kafki. Z niego aplikacja pobiera dane do przetworzenia.
+
+> WAŻNE !!!
+> W przypadku źle sformatowanego smsa (np nie takie cudzysłowy: “ zamiast ") spowoduje to błąd serializacji i zawieszenie aplikacji.
+> Można próbować wtedy restartu kontenera.
+
+
+> WAŻNE !!!
+> Z racji tego, że nie mamy (przez brak tokenu) jak się uwierzytelnić do serwisu sprawdzającego phishing to sms zawierająć link
+> którego nie ma w naszym topicu `uri_confidence_level` trafi do topica wyjściowego `sms_output`. Uri natomiast zostanie
+> przekierowane do ponownego sprawdzenia tak aby budować nam naszą *bazę* z linkami. Tak to zaprojektowałem, żeby w przypadku awarii
+> zewnętrznego servisu nie doszło do sytuacji, że odcinamy użtkowników od smsów (z linkami). Będzie to żadka sytuacja bo *baza* powinna
+> się szybko nabudować.
+
+
 # Budowanie Aplikacji
-Uruchom terminal i przejdź do folderu play-with-me. Następnie nadaj prawa wykonywalności plikowi `run` wpisując 
+Uruchom terminal i przejdź do folderu play-with-me. Następnie nadaj prawa wykonywalności plikowi `run` wpisując: 
 
 ```zsh
 chmod +x run
@@ -121,11 +178,40 @@ Aby to umożliwić konieczne jest wykonanie kilku kroków:
 Takie rozwiązanie SSL zdążyłem zaimplementować, ale nie zdążyłem przetestować czy w ogóle zadziała, dlatego jest ono w kodzie
 źródłowym zakomentowane. Bardzo możliwe, że coś w takim rozwiązaniu jest nie tak.  
 
-# Testowanie aplikacji
-
 
 # What TODO
 Co można by jeszcze zmodyfikować/poprawić? 
+* Sprawdzić czy takie rozwiązanie SSL'a w ogóle zadziała. 
 * Poprawić działanie UriSearcher, tak aby lepiej (?) wyłuskiwał linki z smsów.
 * Dodanie logowania z Log4j2. 
 * i pewnie jeszcze kilka rzeczy
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

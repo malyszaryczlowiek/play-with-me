@@ -1,7 +1,7 @@
 #!/bin/zsh
 
 chmod +x ./smsSender
-chmod +x ./topicContentZsh
+chmod +x ./topicContent
 chmod +x ./kafka-sms-analyser/generateJAR
 
 ./kafka-sms-analyser/generateJAR
