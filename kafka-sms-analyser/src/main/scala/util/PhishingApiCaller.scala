@@ -23,6 +23,9 @@ class PhishingApiCaller extends Serializable {
    *         process data with this uri it will be checked once again.
    */
   def check(uriToCheck: String, phishingService: PhishingService): String = {
+//    val forbiden = List("https://forbidden.com", "https://foo.org")
+//    if (forbiden.contains(uriToCheck)) ConfidenceLevel.HIGH
+//    else ConfidenceLevel.LOW
     val backend = HttpClientSyncBackend()
     implicit val requestReadWriter: ReadWriter[PhishingRequestBody] = macroRW[PhishingRequestBody]
     val requestBody = PhishingRequestBody(uriToCheck, List(ThreatType.SOCIAL_ENGINEERING), true)
@@ -51,3 +54,10 @@ class PhishingApiCaller extends Serializable {
   }
 
 }
+
+/*
+{"sender":"234100200300","recipient":"48700800999","message":"coś https://forbiddennn.com innego https://foo.org"}
+{"sender":"234100200300","recipient":"48700800999","message":"coś https://foo.org innego"}
+
+{"sender":"234100200300","recipient":"48700800999","message":"coś https://forbiddennn.com innego https://fooo.org"}
+ */

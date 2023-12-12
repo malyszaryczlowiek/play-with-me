@@ -5,14 +5,14 @@ Zakładam, że SMSy trafiają do systemu kolejkowego typu Kafka i broker(y) je p
 Zakładam, że każdy użytkownik na starcie ma taką ochronę uruchomioną defaultowo. I że nie wymaga ona włączenia. Po jej
 wyłączeniu można ją normalnie włączyć tak jak zostało to narzucone w treści zadania. 
 
-Zakładam, że dane wejściowym topicu są przechowywane w schemacie: klucz to `null` a wartość to SMS zapisany jako JSON 
-string. Nullowanie klucza ma tę cechę, że *round-robin'uje* nam dane między partycjami topika, choć w tym przypadku nie 
-będzie to miało żadnego znacznia.
+Zakładam, że dane w wejściowym topicu są przechowywane w schemacie: klucz to `null` a wartość to SMS zapisany jako JSON 
+string. Nullowanie klucza ma tę cechę, że *round-robin'uje* nam dane między partycjami topika, choć w tym przypadku przy dużej ilości
+smsów nie będzie to miało żadnego znacznia.
 
 Zakładam, ze w SMSie może być więcej niż jeden URI.
 
 Zakładam również, że w przypadku gdy użytkownik ma włączoną ochronę, w smsie jest Uri, w naszej *bazie* nie ma informacji 
-o tym uri a servis nie odpowiada, to, że taki sms przechodzi dalej, przy czym uri trawia do ponownego sprawdzenia.  
+o tym uri a servis nie odpowiada, to, że taki sms przechodzi dalej, bo nie możemy czekać w nieskończoność aż serwis ruszy.  
 
 
 # Architektura
@@ -23,7 +23,7 @@ informacje o statusie ochrony użytkownika, poziomie bezpieczeństwa danego URI 
 
 ## Korzyści z takiej architektury
 Pełna skalowalność. Możemy mieć tyle egzemplarzy tej aplikacji ile wynosi 
-partycjonowanie danych w topicach. Jeśli w klastrze mamy kilka brokerów to dodatkowo jesteśmy zabezpieczeni na wypadek 
+partycjonowanie danych w topicach (topiku wejściowym). Jeśli w klastrze mamy kilka brokerów to dodatkowo jesteśmy zabezpieczeni na wypadek 
 awarii jednego czy kilku z nich (ale nie wszystkich naraz 😵). 
 
 
@@ -65,11 +65,10 @@ I tak przy uruchamianiu aplikacji tworzymy dodatkowo następujące topiki:
   mają taką samą postać tej tabeli.  
 * `sms_with_many_uri` -  jest to *pętlowy* topik, który służy nam do iteracyjnego sprawdzania wszystkich liknków znalezionych 
   w SMSie. Dzieje się tak do momentu, aż któryś z linków okaże się niebezpieczny wtedy taki SMS wypada z obiegu 
-  (są w nim tylko SMSy z URI i aktywną ochroną) a pozostałe linki z SMSa trafiają do topica `uri_to_check`, żeby 
-  zostały sprawdzone, i nabudowywały nam naszą tablicę `uri_table`.
+  (są w nim tylko SMSy z URI i aktywną ochroną).
 
 
-W celu zmniejszenia ilości przechowywanych na brokerze danych, można by takie topiki jak `sms_with_many_uri` i `uri_to_check` skonfigurować
+W celu zmniejszenia ilości przechowywanych na brokerze danych, można by topik `sms_with_many_uri` skonfigurować
 z ograniczonym czasem retencji.
 
 
@@ -145,7 +144,7 @@ A następnie w jeszcze kolejnym do wysyłania sms:
 ./smsSender sms-input
 ```
 
-W terminalu do wysyłania sms wklejić i potwierdzić enterem przykładowy sms:
+W terminalu do wysyłania smsów wklejić i potwierdzić enterem przykładowy sms:
 
 ```zsh
 {"sender":"234100200300","recipient":"48700800999","message":"coś innego"}
