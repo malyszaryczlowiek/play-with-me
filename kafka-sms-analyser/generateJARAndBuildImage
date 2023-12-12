@@ -1,0 +1,19 @@
+#!/bin/zsh
+
+cd kafka-sms-analyser
+
+APP_NAME="kafka-sms-analyser"
+APP_VERSION="0.1.0"
+APP=$APP_NAME-$APP_VERSION
+
+sbt assembly
+# add required config files (log4j2 is not used yet)
+jar -uf ./target/scala-2.13/kafka-sms-analyser-0.1.0.jar application.conf
+jar -uf ./target/scala-2.13/kafka-sms-analyser-0.1.0.jar log4j2.xml
+
+docker build -t $APP_NAME .
+
+cd ..
+
+
+

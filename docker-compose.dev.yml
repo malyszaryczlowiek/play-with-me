@@ -1,0 +1,75 @@
+version: "3.9"
+
+networks:
+  play-network:
+    driver: bridge
+    name: play-network
+
+services:
+  # https://hub.docker.com/_/zookeeper
+  # https://hub.docker.com/r/bitnami/zookeeper
+  zookeeper:
+    container_name: zookeeper
+    image: zookeeper:latest # 3.8.0 works
+    #hostname: zoo1
+    ports:
+      - "2181:2181"
+    networks:
+      - play-network
+    restart: always
+
+
+  # https://hub.docker.com/r/bitnami/kafka
+  # create cluster build from three brokers
+  kafka1:
+    container_name: kafka1
+    #hostname: kafka1
+    build: ./kafka-broker # kafka-broker is folder where Dockerfile can be found
+    ports:
+      - "9092:9092"
+      - "9093:9093"
+    environment:
+      - ALLOW_PLAINTEXT_LISTENER=yes
+      - KAFKA_CFG_ZOOKEEPER_CONNECT=zookeeper:2181
+      - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=CLIENT:PLAINTEXT,EXTERNAL:PLAINTEXT
+      - KAFKA_CFG_LISTENERS=CLIENT://:9092,EXTERNAL://:9093
+      - KAFKA_CFG_ADVERTISED_LISTENERS=CLIENT://kafka1:9092
+      - KAFKA_CFG_INTER_BROKER_LISTENER_NAME=CLIENT
+      - KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE=false
+    depends_on:
+      - zookeeper
+    restart: always
+    networks:
+      - play-network
+
+
+  # Kafka sms Analyser
+  kafka_streams:
+    container_name: kafka-sms-analyser
+    build: ./kafka-sms-analyser
+    ports:
+      - "8081:8080"
+    depends_on:
+      - kafka1
+#    restart: always
+    networks:
+      - play-network
+#    environment:
+#      - KAFKA_STREAMS_ENV=DEV
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

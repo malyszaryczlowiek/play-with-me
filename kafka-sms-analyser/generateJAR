@@ -1,0 +1,12 @@
+#!/bin/zsh
+
+cd kafka-sms-analyser
+sbt assembly
+# add required config files (log4j2 is not used yet)
+jar -uf ./target/scala-2.13/kafka-sms-analyser-0.1.0.jar application.conf
+jar -uf ./target/scala-2.13/kafka-sms-analyser-0.1.0.jar log4j2.xml
+
+cd ..
+
+
+
