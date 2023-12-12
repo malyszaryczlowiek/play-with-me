@@ -1,7 +1,7 @@
 package io.github.malyszaryczlowiek
 package util
 
-import model.{PhishingRequestBody, PhishingResponseBody, Score, ThreatType}
+import model.{ConfidenceLevel, PhishingRequestBody, PhishingResponseBody, Score, ThreatType}
 import config.AppConfig.PhishingService
 
 import sttp.client3._
@@ -49,7 +49,5 @@ class PhishingApiCaller extends Serializable {
       null
     }
   }
-
-
 
 }

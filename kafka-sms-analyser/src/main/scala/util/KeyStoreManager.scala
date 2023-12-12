@@ -3,6 +3,8 @@ package util
 
 import config.AppConfig._
 
+
+
 import java.io.{File, FileInputStream, FileOutputStream, InputStream}
 import java.security.KeyStore
 import java.security.cert.{Certificate, CertificateFactory, X509Certificate}
@@ -11,11 +13,9 @@ import scala.util.{Failure, Success, Using}
 
 class KeyStoreManager {
 
-  sealed trait StoreCreation
-  case object Done  extends StoreCreation
-  case object Error extends StoreCreation
 
 
+  import io.github.malyszaryczlowiek.util.KeyStoreManager.{Done, Error, StoreCreation}
   /**
    * this method creates required for SSL keyStore
    *
@@ -65,6 +65,7 @@ class KeyStoreManager {
       } match {
         case Failure(exception) =>
           // logger
+          println(s"$exception")
           Error
         case Success(value) =>
           // after successfully creating certificate
@@ -79,8 +80,12 @@ class KeyStoreManager {
     } else Error
   }
 
+}
+object KeyStoreManager {
 
-
-
+  sealed trait StoreCreation
+  case object Done extends StoreCreation
+  case object Error extends StoreCreation
 
 }
+

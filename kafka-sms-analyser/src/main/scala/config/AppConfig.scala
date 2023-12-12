@@ -114,14 +114,6 @@ object AppConfig {
   def smsOutputTopicName: String = config.getString(s"kafka-broker.topic.sms-output-topic.name")
 
 
-  /**
-   * topic where we put uri to check its confidence level
-   */
-  def uriToCheckTopicName: String = config.getString(s"kafka-broker.topic.uri-to-check-topic.name")
-
-
-
-
 
   object Topics {
 
@@ -133,8 +125,12 @@ object AppConfig {
     )
 
 
+    private def smsInputPartNum = config.getInt(s"kafka-broker.topic.sms-input-topic.topic-partition-num")
+    private def smsInputRepFac = config.getInt(s"kafka-broker.topic.sms-input-topic.topic-replication-factor").toShort
+
     val smsInputTopic: TopicSetup =
-      TopicSetup(smsInputTopicName, kafkaConfig.servers, userStatusPartNum, userStatusRepFac, topicConfig)
+      TopicSetup(smsInputTopicName, kafkaConfig.servers, smsInputPartNum, smsInputRepFac, topicConfig)
+
 
 
     private def userStatusPartNum = config.getInt(s"kafka-broker.topic.user-status-topic.topic-partition-num")
@@ -150,14 +146,6 @@ object AppConfig {
 
     val uriConfidenceLevelTopic: TopicSetup =
       TopicSetup(uriConfidenceTopicName, kafkaConfig.servers, uriConfidencePartNum, uriConfidenceRepFac, topicConfig)
-
-
-
-    private def uriToCheckPartNum = config.getInt(s"kafka-broker.topic.uri-to-check-topic.topic-partition-num")
-    private def uriToCheckRepFac  = config.getInt(s"kafka-broker.topic.uri-to-check-topic.topic-replication-factor").toShort
-
-    val uriToCheckTopic: TopicSetup =
-      TopicSetup(uriToCheckTopicName, kafkaConfig.servers, uriToCheckPartNum, uriToCheckRepFac, topicConfig)
 
 
 

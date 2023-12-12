@@ -67,10 +67,7 @@ I tak przy uruchamianiu aplikacji tworzymy dodatkowo następujące topiki:
   w SMSie. Dzieje się tak do momentu, aż któryś z linków okaże się niebezpieczny wtedy taki SMS wypada z obiegu 
   (są w nim tylko SMSy z URI i aktywną ochroną) a pozostałe linki z SMSa trafiają do topica `uri_to_check`, żeby 
   zostały sprawdzone, i nabudowywały nam naszą tablicę `uri_table`.
-* `uri_to_check` - jest to topic do którego trafiają adresy URI pochodzące z SMSów użytkowników z włączoną ochroną,
-  które to SMSy zostały odrzucone bo nieostatni znaleziony w wiadomości link był niebezpieczny. Takie URI są 
-  następnie ponownie zaciągane do aplikacji i jeśli nie ma ich w naszej tablicy `uriTable` to dla nich też zostanie 
-  sprawdzony status. Status ten następnie trafi do tejże tablicy. 
+
 
 W celu zmniejszenia ilości przechowywanych na brokerze danych, można by takie topiki jak `sms_with_many_uri` i `uri_to_check` skonfigurować
 z ograniczonym czasem retencji.
@@ -124,6 +121,58 @@ gdzie `sms_input` to topic wejściowy smsów do kafki. Z niego aplikacja pobiera
 > zewnętrznego servisu nie doszło do sytuacji, że odcinamy użtkowników od smsów (z linkami). Będzie to rzadka sytuacja bo *baza* powinna
 > się szybko nabudować i odpytywanie zewnętrznego serwisu powinno być coraz rzadsze. 
 
+## Symulacja działania
+Prosta symulacja działania aplikacji (bez dostępu do api):
+
+Zakomentować treść metody `PhishingApiCaller.check()` i wstawić poniższy kod:
+
+```scala
+val forbiden = List("https://forbidden.com", "https://foo.org")
+if (forbiden.contains(uriToCheck)) ConfidenceLevel.HIGH
+else ConfidenceLevel.LOW
+```
+
+zbudować środowisko testowe:
+
+```zsh
+./runDev 
+```
+
+uruchomić w oddzielnych terminalach za pomocą skryptu `./topicContent <nazwa-topica>` wszystkie consumery do podglądu.
+A następnie w jeszcze kolejnym do wysyłania sms:
+
+```zsh
+./smsSender sms-input
+```
+
+W terminalu do wysyłania sms wklejić i potwierdzić enterem przykładowy sms:
+
+```zsh
+{"sender":"234100200300","recipient":"48700800999","message":"coś innego"}
+```
+
+trafi on na `sms-output`. Następnie wysłać z zabronioną domeną:
+
+```zsh
+{"sender":"234100200300","recipient":"48700800999","message":"coś https://forbidden.com innego"}
+```
+
+Nie trafi on na `sms-output` ale w `uri_confidence_level` pojawi się `HIGH` (consumer wyświetla tylko wartości bez kluczy).
+Następnie można wyłączyć usługę:
+
+```zsh
+{"sender":"234100200300","recipient":"123456789","message":"STOP"}
+```
+
+Wtedy w `user_status` pojawi się `"false"`. Ponowne wysłanie wiadomości: 
+
+```zsh
+{"sender":"234100200300","recipient":"48700800999","message":"coś https://forbidden.com innego"}
+```
+
+z zabronionym linkiem sprawi, że teraz sms trafi do `sms_output`, bo usługa jest wyłączona.
+
+I tak dalej...
 
 # Budowanie Aplikacji
 Uruchom terminal i przejdź do folderu play-with-me. Następnie nadaj prawa wykonywalności plikowi `run` wpisując: 
@@ -172,11 +221,11 @@ Aby to umożliwić konieczne jest wykonanie kilku kroków:
   [`main()`](https://github.com/malyszaryczlowiek/play-with-me/blob/1-dev-branch/kafka-sms-analyser/src/main/scala/SmsAnalyser.scala) 
   oraz w obiekcie 
   [`TopicCreator`](https://github.com/malyszaryczlowiek/play-with-me/blob/1-dev-branch/kafka-sms-analyser/src/main/scala/util/TopicCreator.scala)
-* Aplikacja przy uruchomieniu tworzy oba pliki (`keyStore.jks` i `trustStore.jks`) jednocześnie wstawiając certyfikat do
+* Aplikacja przy uruchomieniu tworzy oba potrzebne pliki (`keyStore.jks` i `trustStore.jks`) jednocześnie wstawiając certyfikat do
   `trustStore.jks`.
 
-Takie rozwiązanie SSL zdążyłem zaimplementować, ale nie zdążyłem przetestować czy w ogóle zadziała, dlatego jest ono w kodzie
-źródłowym zakomentowane. Bardzo możliwe, że coś w takim rozwiązaniu jest nie tak.  
+Nie implementowałem wcześniej zabezpieczania SSL. Więc możliwe, że coś tutaj robię źle. Dokumentacja do zabezpieczenia kafki streams
+na której się wzorowałem jest [tutaj](https://kafka.apache.org/documentation/streams/developer-guide/security.html).
 
 
 # What TODO

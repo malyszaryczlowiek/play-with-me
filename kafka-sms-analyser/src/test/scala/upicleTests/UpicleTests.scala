@@ -47,15 +47,7 @@ class UpicleTests extends AnyFunSuite {
     println(s"$parsed")
     assert(parsed == json)
   }
-/*
-ZłE CUDZYSłowy !!! i deserializacja nie działa !!!
-{“sender”:“234100200300”,“recipient”:“48700800999”,“message”:“Dzień dobry. W związku z audytem nadzór finansowy w naszym banku proszą o potwierdzanie danych pod adresem: https://www.m-bonk.pl.ng/personal-data”}
 
-
-DOBRY
-
-{"sender":"234100200300","recipient":"48700800999","message":"Dzień dobry. W związku z audytem nadzór finansowy w naszym banku proszą o potwierdzanie danych pod adresem: https://www.m-bonk.pl.ng/personal-data"}
- */
 
   test("testing seq of strings") {
     // commented line causes exception in seq case
@@ -90,7 +82,7 @@ DOBRY
 
 
   test("list of Strings to object") {
-    // zakomentowana poniżej linijka wyżuca wyjątek !!!! I to powodowało problemy
+    // commented line throws exception!!!! and it was a problem
     // implicit val readWriter: ReadWriter[Seq[String]] = macroRW[Seq[String]]
     val json = """["A","B"]"""
     val list = read[Seq[String]](json)
@@ -99,45 +91,23 @@ DOBRY
     assert(list == testWith)
   }
 
-
-
-
-
-
 }
-
-
-
 
 
 
 /*
+ZłE CUDZYSłowy !!! i deserializacja nie działa !!!
+{“sender”:“234100200300”,“recipient”:“48700800999”,“message”:“Dzień dobry. W związku z audytem nadzór finansowy w naszym banku proszą o potwierdzanie danych pod adresem: https://www.m-bonk.pl.ng/personal-data”}
 
-sealed trait ThreatType
-case object SOCIAL_ENGINEERING extends ThreatType
-
-
-// https://com-lihaoyi.github.io/upickle/#CaseClasses
-sealed trait ThreatType
-object ThreatType {
-  implicit val rw: ReadWriter[ThreatType] = ReadWriter.merge(SOCIAL_ENGINEERING.rw)
-}
-case class SOCIAL_ENGINEERING() extends ThreatType
-object SOCIAL_ENGINEERING {
-  implicit val rw: ReadWriter[SOCIAL_ENGINEERING] = macroRW
-}
+DOBRY
+{"sender":"234100200300","recipient":"48700800999","message":"Dzień dobry. W związku z audytem nadzór finansowy w naszym banku proszą o potwierdzanie danych pod adresem: https://www.m-bonk.pl.ng/personal-data"}
 
 
-jeśli napiszę test:
+{"sender":"234100200300","recipient":"48700800999","message":"coś innego"}
+{"sender":"234100200300","recipient":"48700800999","message":"coś https://forbidden.com innego"}
 
-implicit val readWriter: ReadWriter[ThreatPhishingRequestBody] = macroRW[ThreatPhishingRequestBody]
-val parsed = write(ThreatPhishingRequestBody("testUri", List(SOCIAL_ENGINEERING()), false))
-// val json = """{"uri":"testUri","threatTypes":["SOCIAL_ENGINEERING"],"allowScan":false}"""
-println(s"$parsed")
-// assert(parsed == json)
-
- dla takiej formy zwróci, a takiego obiektu nie łyknie google API
-
-{"uri":"testUri","threatTypes":[{"$type":"io.github.malyszaryczlowiek.upicleTests.UpicleTests.SOCIAL_ENGINEERING"}],"allowScan":false}
-
-*/
+// wyłączanie usługi
+{"sender":"234100200300","recipient":"123456789","message":"STOP"}
+// włączanie usługi
+{"sender":"234100200300","recipient":"123456789","message":"START"}
+ */
