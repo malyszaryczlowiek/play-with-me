@@ -121,8 +121,8 @@ gdzie `sms_input` to topic wejściowy smsów do kafki. Z niego aplikacja pobiera
 > Z racji tego, że nie mamy (przez brak tokenu) jak się uwierzytelnić do serwisu sprawdzającego phishing to sms zawierająć link
 > którego nie ma w naszym topicu `uri_confidence_level` trafi do topica wyjściowego `sms_output`. Uri natomiast zostanie
 > przekierowane do ponownego sprawdzenia tak aby budować nam naszą *bazę* z linkami. Tak to zaprojektowałem, żeby w przypadku awarii
-> zewnętrznego servisu nie doszło do sytuacji, że odcinamy użtkowników od smsów (z linkami). Będzie to żadka sytuacja bo *baza* powinna
-> się szybko nabudować.
+> zewnętrznego servisu nie doszło do sytuacji, że odcinamy użtkowników od smsów (z linkami). Będzie to rzadka sytuacja bo *baza* powinna
+> się szybko nabudować i odpytywanie zewnętrznego serwisu powinno być coraz rzadsze. 
 
 
 # Budowanie Aplikacji
