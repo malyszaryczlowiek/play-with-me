@@ -46,19 +46,21 @@ class KeyStoreManager {
    * @return
    */
   def createTrustStore( storeLocation: String      = KafkaSSLConfig.SSL_TRUSTSTORE_LOCATION_CONFIG,
-                        storePassword: Array[Char] = KafkaSSLConfig.SSL_TRUSTSTORE_PASSWORD_CONFIG.toCharArray): StoreCreation = {
+                        storePassword: Array[Char] = KafkaSSLConfig.SSL_TRUSTSTORE_PASSWORD_CONFIG.toCharArray,
+                        certFile: String           = KafkaSSLConfig.SSL_CERTIFICATE,
+                        certAlias: String          = KafkaSSLConfig.SSL_CERTIFICATE_ALIAS  ): StoreCreation = {
 
-    val keyStoreFile: File = new File( storeLocation )
+    val trustStore: File = new File( storeLocation )
     // if truststore file does not exists we need create them
-    if (!keyStoreFile.exists()) {
+    if (!trustStore.exists()) {
       val ks: KeyStore = KeyStore.getInstance( KeyStore.getDefaultType ) //  or "pkcs12"
       ks.load(null, storePassword)
 
-      Using(new FileInputStream( KafkaSSLConfig.SSL_CERTIFICATE )) {
+      Using(new FileInputStream( certFile )) {
         (is: InputStream) => {
           val cf: CertificateFactory = CertificateFactory.getInstance("X.509");
           val cert: X509Certificate = cf.generateCertificate(is).asInstanceOf[X509Certificate]
-          ks.setCertificateEntry(KafkaSSLConfig.SSL_CERTIFICATE_ALIAS , cert)
+          ks.setCertificateEntry( certAlias, cert)
         }
       } match {
         case Failure(exception) =>

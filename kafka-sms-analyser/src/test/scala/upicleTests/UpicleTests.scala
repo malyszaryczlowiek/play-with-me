@@ -47,7 +47,15 @@ class UpicleTests extends AnyFunSuite {
     println(s"$parsed")
     assert(parsed == json)
   }
+/*
+ZłE CUDZYSłowy !!! i deserializacja nie działa !!!
+{“sender”:“234100200300”,“recipient”:“48700800999”,“message”:“Dzień dobry. W związku z audytem nadzór finansowy w naszym banku proszą o potwierdzanie danych pod adresem: https://www.m-bonk.pl.ng/personal-data”}
 
+
+DOBRY
+
+{"sender":"234100200300","recipient":"48700800999","message":"Dzień dobry. W związku z audytem nadzór finansowy w naszym banku proszą o potwierdzanie danych pod adresem: https://www.m-bonk.pl.ng/personal-data"}
+ */
 
   test("testing seq of strings") {
     // commented line causes exception in seq case

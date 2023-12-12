@@ -11,9 +11,9 @@ lazy val root = (project in file("."))
     libraryDependencies ++= Seq(
 
       // Kafka Repos
-      "org.apache.kafka" %% "kafka" % "3.1.0",
-      "org.apache.kafka" %% "kafka-streams-scala" % "3.1.0",
-      "org.apache.kafka"  % "kafka-clients"       % "3.1.0",
+      "org.apache.kafka" %% "kafka" % "3.4.0",
+      "org.apache.kafka" %% "kafka-streams-scala" % "3.4.0",
+      "org.apache.kafka"  % "kafka-clients"       % "3.4.0",
 
 
       // Own library
@@ -57,7 +57,7 @@ lazy val root = (project in file("."))
 
 
      // for kafka stream tests
-      "org.apache.kafka" % "kafka-streams-test-utils" % "3.1.0" % Test,
+      "org.apache.kafka" % "kafka-streams-test-utils" % "3.4.0" % Test,
 
     )
   )

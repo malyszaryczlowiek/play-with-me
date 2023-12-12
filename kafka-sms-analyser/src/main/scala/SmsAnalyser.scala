@@ -20,8 +20,21 @@ import util.TopicCreator.{Done, Error}
 
 
 
+class SmsAnalyser
+object SmsAnalyser {
 
-class SmsAnalyser {
+
+  def main33(args: Array[String]): Unit = {
+
+    var i = 60
+    while (i > 0) {
+      println(s"${KafkaSSLConfig.SSL_CERTIFICATE}")
+      Thread.sleep(1000)
+      i -= 1
+    }
+
+  }
+
 
   def main(args: Array[String]): Unit = {
 
@@ -30,7 +43,8 @@ class SmsAnalyser {
     type Uri              = String
     type Nulll            = String    // this type means string is null for sure
     type UserNum          = String
-    type UserNumOrNull    = String
+    // type UserNumOrNull    = String
+    type UserStatus       = String
     type UserStatusOrNull = String
     type Confidence       = String
     type ConfidenceOrNull = String    // may be confidence or null string
@@ -122,42 +136,69 @@ class SmsAnalyser {
     val uriSearcher = new UriSearcher
 
 
-    val splitSmsWithUriOrNot = smsStream.split( Named.as("split_sms_uri_or_not") )
-      .branch((nulll, sms) => {
-        val uriList = uriSearcher.search(sms.message)
-        uriList.nonEmpty
-      }, Branched.as("sms_with_uri"))
-      .branch((nulll, sms) => {
-        val uriList = uriSearcher.search(sms.message)
-        uriList.isEmpty
-      }, Branched.as("sms_without_uri"))
-      .noDefaultBranch()
+
+    /*
+    All split() methods must be replaced by filters due to exception:
+
+    Exception in thread "main" java.util.NoSuchElementException: key not found: sms_with_uri
+     */
+
+//    val splitSmsWithUriOrNot = smsStream.split( Named.as("split_sms_uri_or_not") ) // Named.as("split_sms_uri_or_not")
+//      .branch((nulll, sms) => {
+//        val uriList = uriSearcher.search(sms.message)
+//        uriList.nonEmpty
+//      }, Branched.as("sms_with_uri"))
+//      .branch((nulll, sms) => {
+//        val uriList = uriSearcher.search(sms.message)
+//        uriList.isEmpty
+//      }, Branched.as("sms_without_uri"))
+//      .noDefaultBranch()
+//    val smsWithUri: KStream[Nulll, Sms] = splitSmsWithUriOrNot.apply("sms_with_uri")
+//    val smsWithoutUri: KStream[Nulll, Sms] = splitSmsWithUriOrNot.apply("sms_without_uri")
+
+
+    val smsWithUri: KStream[Nulll, Sms] = smsStream.filter((nulll, sms) => {
+      val uriList = uriSearcher.search(sms.message)
+      uriList.nonEmpty
+    }, Named.as("sms_with_uri"))
+
+
+    val smsWithoutUri: KStream[Nulll, Sms] = smsStream.filter((nulll, sms) => {
+      val uriList = uriSearcher.search(sms.message)
+      uriList.isEmpty
+    }, Named.as("sms_without_uri"))
 
 
 
-    val smsWithUri: KStream[Nulll, Sms] = splitSmsWithUriOrNot.apply("sms_with_uri")
+
+//    val splitPhishingService = smsWithoutUri.split( Named.as( "split_phishing_service_turn_on_off_or_do_nothing") )
+//      .branch((nulll, sms) => {
+//        // recipient must be different from defined in conf
+//        sms.recipient != serviceNumber
+//      }, Branched.as("service_no_change"))
+//      .branch((nulll, sms) => {
+//        // recipient number must be equal to service turn on/off number
+//        // and message must be stop or start
+//        sms.recipient == serviceNumber && (sms.message == "STOP" || sms.message == "START")
+//      }, Branched.as("change_service"))
+//      .noDefaultBranch()
+//
+//    val serviceNoChange: KStream[Nulll, Sms] = splitPhishingService.apply("service_no_change")
+//    val changeService: KStream[Nulll, Sms] = splitPhishingService.apply("change_service")
 
 
-    val smsWithoutUri: KStream[Nulll, Sms] = splitSmsWithUriOrNot.apply("sms_without_uri")
+    val serviceNoChange: KStream[Nulll, Sms] = smsWithoutUri.filter((nulll, sms) => {
+      // recipient must be different from defined in conf
+      sms.recipient != serviceNumber
+    }, Named.as("service_no_change"))
 
 
-    val splitPhishingService = smsWithoutUri.split( Named.as( "split_phishing_service_turn_on_off_or_do_nothing") )
-      .branch((nulll, sms) => {
-        // recipient must be different from defined in conf
-        sms.recipient != serviceNumber
-      }, Branched.as("service_no_change"))
-      .branch((nulll, sms) => {
-        // recipient number must be equal to service turn on/off number
-        // and message must be stop or start
-        sms.recipient == serviceNumber && (sms.message == "STOP" || sms.message == "START")
-      }, Branched.as("change_service"))
-      .noDefaultBranch()
+    val changeService: KStream[Nulll, Sms] = smsWithoutUri.filter((nulll, sms) => {
+      // recipient number must be equal to service turn on/off number
+      // and message must be stop or start
+      sms.recipient == serviceNumber && (sms.message == "STOP" || sms.message == "START")
+    }, Named.as("change_service"))
 
-
-    val serviceNoChange: KStream[Nulll, Sms] = splitPhishingService.apply("service_no_change")
-
-
-    val changeService: KStream[Nulll, Sms] = splitPhishingService.apply("change_service")
 
 
     // we map our sms to user number who want to change service status.
@@ -176,7 +217,7 @@ class SmsAnalyser {
 
 
 
-    val checkingUserService: KStream[Sms, UserNumOrNull] = smsUserNum.leftJoin( userTable )(
+    val checkingUserService: KStream[Sms, UserStatusOrNull] = smsUserNum.leftJoin( userTable )(
       // join using userNum
       (sms, userNum) => userNum,
       // if userStatus is null this means there is no user in table
@@ -187,24 +228,36 @@ class SmsAnalyser {
 
 
 
-    val splitSmsProtectedOrNot = checkingUserService.split(Named.as( "split_sms_protected_or_not"))
-      .branch((sms, userStatus) => {
-        // if userStatus is null this means user is protected
-        userStatus == null
-      }, Branched.as("protected"))
-      .branch((sms, userStatus) => {
-        // if userNum is not null and is false then user is not protected
-        // remember we only put "false" or null as value to user_status topic
-        userStatus != null && userStatus == "false"
-      }, Branched.as("not_protected"))
-      .noDefaultBranch()
+//    val splitSmsProtectedOrNot = checkingUserService.split(Named.as( "split_sms_protected_or_not"))
+//      .branch((sms, userStatus) => {
+//        // if userStatus is null this means user is protected
+//        userStatus == null
+//      }, Branched.as("protected"))
+//      .branch((sms, userStatus) => {
+//        // if userNum is not null and is false then user is not protected
+//        // remember we only put "false" or null as value to user_status topic
+//        userStatus != null && userStatus == "false"
+//      }, Branched.as("not_protected"))
+//      .noDefaultBranch()
+//
+//    val smsWithUriProtected: KStream[Sms, Nulll] = splitSmsProtectedOrNot.apply("protected")
+//    val smsWithUriNotProtected1: KStream[Sms, UserNum] = splitSmsProtectedOrNot.apply("not_protected")
 
 
 
-    val smsWithUriProtected: KStream[Sms, Nulll] = splitSmsProtectedOrNot.apply("protected")
+    val smsWithUriProtected: KStream[Sms, Nulll] = checkingUserService.filter((sms, userStatus) => {
+      // if userStatus is null this means user is protected
+      userStatus == null
+    }, Named.as("protected"))
 
 
-    val smsWithUriNotProtected1: KStream[Sms, UserNum] = splitSmsProtectedOrNot.apply("not_protected")
+
+    val smsWithUriNotProtected1: KStream[Sms, UserStatus] = checkingUserService.filter((sms, userStatus) => {
+      // if userNum is not null and is false then user is not protected
+      // remember we only put "false" or null as value to user_status topic
+      userStatus != null && userStatus == "false"
+    }, Named.as("not_protected"))
+
 
 
     val smsWithUriNotProtected2: KStream[Nulll, Sms] = smsWithUriNotProtected1.map(
@@ -241,6 +294,7 @@ class SmsAnalyser {
       .filter((uri, confidenceOrNull) => confidenceOrNull == null, Named.as("sms_filtered_before_api_call"))
       // most blocking operation. We call phishingApi for Confidence level of uri
       .map((uri, nulll) => {
+        // val serviceCaller = new PhishingApiCaller
         val confidenceOrNull = serviceCaller.check(uri, phishingService)
         (uri, confidenceOrNull)
       }, Named.as("uri_with_confidence_or_not"))
@@ -259,49 +313,70 @@ class SmsAnalyser {
 
 
     // now i split if confidence level is secure, unsecure or null
-    val splitSmsConfidenceUriList = smsConfidenceUriList.split(Named.as("split_sms_confidence_uri_list"))
-      .branch((sms, confidenceAndUriList) => {
-        // we check if confidence of uriList is in uriTable
-        // if is null we need to call phishing APi
-        confidenceAndUriList.confidence == null || confidenceAndUriList.confidence == CONFIDENCE_LEVEL_UNSPECIFIED
-      }, Branched.as("confidence_is_null"))
-      .branch((sms, confidenceAndUriList) => {
-        // we check if confidence level is secure
-        secureConfidenceLevels.contains( confidenceAndUriList.confidence )
-      }, Branched.as("confidence_is_secure"))
-      .branch((sms, confidenceAndUriList) => {
-        // we check if confidence level is not secure
-        notSecureConfidenceLevels.contains( confidenceAndUriList.confidence )
-      }, Branched.as("confidence_is_not_secure"))
-      .noDefaultBranch()
+//    val splitSmsConfidenceUriList = smsConfidenceUriList.split(Named.as("split_sms_confidence_uri_list"))
+//      .branch((sms, confidenceAndUriList) => {
+//        // we check if confidence of uriList is in uriTable
+//        // if is null we need to call phishing APi
+//        confidenceAndUriList.confidence == null || confidenceAndUriList.confidence == CONFIDENCE_LEVEL_UNSPECIFIED
+//      }, Branched.as("confidence_is_null"))
+//      .branch((sms, confidenceAndUriList) => {
+//        // we check if confidence level is secure
+//        secureConfidenceLevels.contains( confidenceAndUriList.confidence )
+//      }, Branched.as("confidence_is_secure"))
+//      .branch((sms, confidenceAndUriList) => {
+//        // we check if confidence level is not secure
+//        notSecureConfidenceLevels.contains( confidenceAndUriList.confidence )
+//      }, Branched.as("confidence_is_not_secure"))
+//      .noDefaultBranch()
+//
+//    val nullConfidence: KStream[Sms, ConfidenceAndUriList] = splitSmsConfidenceUriList.apply("confidence_is_null")
+//    val secureConfidence: KStream[Sms, ConfidenceAndUriList] = splitSmsConfidenceUriList.apply("confidence_is_secure")
+//    val notSecureConfidence: KStream[Sms, ConfidenceAndUriList] = splitSmsConfidenceUriList.apply("confidence_is_not_secure")
 
 
-    val nullConfidence: KStream[Sms, ConfidenceAndUriList]      = splitSmsConfidenceUriList.apply("confidence_is_null")
+
+    // now i split if confidence level is secure, unsecure or null
+
+    val nullConfidence: KStream[Sms, ConfidenceAndUriList] = smsConfidenceUriList.filter((sms, confidenceAndUriList) => {
+      // we check if confidence of uriList is in uriTable
+      // if is null we need to call phishing APi
+      confidenceAndUriList.confidence == null || confidenceAndUriList.confidence == CONFIDENCE_LEVEL_UNSPECIFIED
+    }, Named.as("confidence_is_null"))
 
 
-    val secureConfidence: KStream[Sms, ConfidenceAndUriList]    = splitSmsConfidenceUriList.apply("confidence_is_secure")
+    val secureConfidence: KStream[Sms, ConfidenceAndUriList] = smsConfidenceUriList.filter((sms, confidenceAndUriList) => {
+      // we check if confidence level is secure
+      secureConfidenceLevels.contains( confidenceAndUriList.confidence )
+    }, Named.as("confidence_is_secure"))
 
 
-    val notSecureConfidence: KStream[Sms, ConfidenceAndUriList] = splitSmsConfidenceUriList.apply("confidence_is_not_secure")
+    val notSecureConfidence: KStream[Sms, ConfidenceAndUriList] = smsConfidenceUriList.filter((sms, confidenceAndUriList) => {
+      // we check if confidence level is not secure
+      notSecureConfidenceLevels.contains(confidenceAndUriList.confidence)
+    }, Named.as("confidence_is_not_secure"))
+
 
 
     val uriChecked: KStream[Sms, ConfidenceAndUriList] = nullConfidence.map((sms, confidenceAndUriList) => {
+       // val serviceCaller = new PhishingApiCaller
       val confidenceOrNull = serviceCaller.check( confidenceAndUriList.uriList.list.head, phishingService)
       (sms, confidenceAndUriList.copy(confidence = confidenceOrNull) )
     }, Named.as("uri_checked"))
 
 
+//    val splitCheckedUri = uriChecked.split( Named.as("split_uri_checked") )
+//      .branch((sms, confidenceAndUriList) => {
+//        // we check if confidence of head of uriList is secure or null if service is unavailable
+//        confidenceAndUriList.confidence == null || confidenceAndUriList.confidence == CONFIDENCE_LEVEL_UNSPECIFIED || secureConfidenceLevels.contains(confidenceAndUriList.confidence)
+//      }, Branched.as("confidence_is_secure_or_null"))
+//      .branch((sms, confidenceAndUriList) => {
+//        // we check if confidence level is not secure
+//        notSecureConfidenceLevels.contains(confidenceAndUriList.confidence)
+//      }, Branched.as("confidence_is_not_secure"))
+//      .noDefaultBranch()
 
-    val splitCheckedUri = uriChecked.split( Named.as("split_uri_checked") )
-      .branch((sms, confidenceAndUriList) => {
-        // we check if confidence of head of uriList is secure or null if service is unavailable
-        confidenceAndUriList.confidence == null || confidenceAndUriList.confidence == CONFIDENCE_LEVEL_UNSPECIFIED || secureConfidenceLevels.contains(confidenceAndUriList.confidence)
-      }, Branched.as("confidence_is_secure_or_null"))
-      .branch((sms, confidenceAndUriList) => {
-        // we check if confidence level is not secure
-        notSecureConfidenceLevels.contains(confidenceAndUriList.confidence)
-      }, Branched.as("confidence_is_not_secure"))
-      .noDefaultBranch()
+//    val uriCheckedButNotSecure: KStream[Sms, ConfidenceAndUriList] = splitCheckedUri.apply("confidence_is_not_secure")
+//    val checkedUriIsSecureOrNull: KStream[Sms, ConfidenceAndUriList] = splitCheckedUri.apply("confidence_is_secure_or_null")
 
 
 
@@ -309,51 +384,59 @@ class SmsAnalyser {
     // we cannot process further this sms to end user but we can check rest of uri from list if any
     // and build our uriTable further (but only if urilist has more then one uri, otherwise
     // we do not have what to process because head of list was processed)
-    val uriCheckedButNotSecure: KStream[Sms, ConfidenceAndUriList] = splitCheckedUri.apply("confidence_is_not_secure")
+    val checkedUriIsSecureOrNull: KStream[Sms, ConfidenceAndUriList] = uriChecked.filter((sms, confidenceAndUriList) => {
+      // we check if confidence of head of uriList is secure or null if service is unavailable
+      confidenceAndUriList.confidence == null || confidenceAndUriList.confidence == CONFIDENCE_LEVEL_UNSPECIFIED || secureConfidenceLevels.contains(confidenceAndUriList.confidence)
+    }, Named.as("confidence_is_secure_or_null"))
 
 
-    val checkedUriIsSecureOrNull: KStream[Sms, ConfidenceAndUriList] = splitCheckedUri.apply("confidence_is_secure_or_null")
+    val uriCheckedButNotSecure: KStream[Sms, ConfidenceAndUriList] = uriChecked.filter((sms, confidenceAndUriList) => {
+      // we check if confidence level is not secure
+      notSecureConfidenceLevels.contains(confidenceAndUriList.confidence)
+    }, Named.as("sms_confidence_is_not_secure"))
 
 
 
     val mergedNotSecureConfidence: KStream[Sms, ConfidenceAndUriList] = uriCheckedButNotSecure.merge( notSecureConfidence,
       Named.as("merged_not_secure_confidence")
-    )
+    ) // OK
 
 
     // here we remove head of list because was checked
     val uriListToCheck: KStream[Uri, Uri] = mergedNotSecureConfidence.flatMap(
-      (sms, confidenceAndUriList) => confidenceAndUriList.uriList.list.tail.map(uri => (uri,uri))
-      , Named.as("uri_list_to_check")
-    )
+      (sms, confidenceAndUriList) => confidenceAndUriList.uriList.list.tail.map(uri => (uri,uri)),
+      Named.as("uri_list_to_check")
+    ) // OK
 
     // and subsequently send it to uri_to_check topic
     uriListToCheck.to( uriToCheckTopicName ) (Produced.`with`(stringSerde, stringSerde))
 
 
     // merging sms with secure first uri
-    val checkedUriSecured: KStream[Sms, ConfidenceAndUriList] = secureConfidence.merge(checkedUriIsSecureOrNull, Named.as("checked_secure_uri"))
+    val checkedUriSecured: KStream[Sms, ConfidenceAndUriList] = secureConfidence.merge(checkedUriIsSecureOrNull, Named.as("checked_secure_uri")) //ok
 
     val checkedUriDeleted:  KStream[Sms, UriList] = checkedUriSecured.mapValues(
       (sms, confidenceAndUriList) => UriList( confidenceAndUriList.uriList.list.tail ),
       Named.as("checked_uri_deleted")
-    )
+    ) //ok
 
 
-    val splitUriListEmptyOrNot = checkedUriDeleted.split( Named.as("uri_list_empty_or_not") )
-      .branch((sms, uriList) => uriList.list.nonEmpty , Branched.as("non_empty_uri_list"))
-      .branch((sms, uriList) => uriList.list.isEmpty  , Branched.as("empty_uri_list"))
-      .noDefaultBranch()
+//    val splitUriListEmptyOrNot = checkedUriDeleted.split( Named.as("uri_list_empty_or_not") )
+//      .branch((sms, uriList) => uriList.list.nonEmpty , Branched.as("non_empty_uri_list"))
+//      .branch((sms, uriList) => uriList.list.isEmpty  , Branched.as("empty_uri_list"))
+//      .noDefaultBranch()
+//
+//    val nonEmptyUriList: KStream[Sms, UriList] = splitUriListEmptyOrNot.apply("non_empty_uri_list")
+//    val emptyUriList: KStream[Sms, UriList]    = splitUriListEmptyOrNot.apply("empty_uri_list")
 
-    val nonEmptyUriList: KStream[Sms, UriList] = splitUriListEmptyOrNot.apply("non_empty_uri_list")
+
+    val nonEmptyUriList: KStream[Sms, UriList] = checkedUriDeleted.filter((sms, uriList) => uriList.list.nonEmpty, Named.as("non_empty_uri_list")) //ok
+    val emptyUriList: KStream[Sms, UriList] = checkedUriDeleted.filter((sms, uriList) => uriList.list.isEmpty, Named.as("empty_uri_list")) //ok
 
 
     // here we send sms with protection with more than one uri to process rest of uri
     // from uriList (head is processed now)
     nonEmptyUriList.to( smsWithManyUriTopicName )(Produced.`with`(smsSerde, uriListSerde))
-
-
-    val emptyUriList: KStream[Sms, UriList]    = splitUriListEmptyOrNot.apply("empty_uri_list")
 
 
     // sms with checked all uri (all safe) and ready to save to sms_output_topic
@@ -440,7 +523,15 @@ class SmsAnalyser {
 
     var err = 0
 
-    TopicCreator.createTopic(userStatusTopic) match {
+    TopicCreator.createTopic( smsInputTopic ) match {
+      case Done(msg) =>
+      // logger.info(s"Topic '$userStatusTopicName' created")
+      case Error(error) =>
+        err += 1
+      // logger.error(s"Creation topic '$userStatusTopicName' failed with error: $error")
+    }
+
+    TopicCreator.createTopic( userStatusTopic) match {
       case Done(msg) =>
       // logger.info(s"Topic '$userStatusTopicName' created")
       case Error(error) =>

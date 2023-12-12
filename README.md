@@ -1,6 +1,6 @@
 # Założenia
 
-Zakładam, że SMSy trafiają do systemu kolejkowego typu Kafka. 
+Zakładam, że SMSy trafiają do systemu kolejkowego typu Kafka i broker(y) je przechowujący(e) już istnieje(ą). 
 
 Zakładam, że każdy użytkownik na starcie ma taką ochronę uruchomioną defaultowo. I że nie wymaga ona włączenia. Po jej
 wyłączeniu można ją normalnie włączyć tak jak zostało to narzucone w treści zadania. 
@@ -68,8 +68,37 @@ I tak przy uruchamianiu aplikacji tworzymy dodatkowo następujące topiki:
 W celu zmniejszenia ilości przechowywanych na brokerze danych, można by takie topiki jak `sms_with_many_uri` i `uri_to_check` skonfigurować
 z ograniczonym czasem retencji.
 
-# Uruchomienie
-TODO
+# Budowanie Aplikacji
+Uruchom terminal i przejdź do folderu play-with-me. Następnie nadaj prawa wykonywalności plikowi `run` wpisując 
+
+```zsh
+chmod +x run
+```
+
+Następnie uruchom skrypt wpisująć 
+
+```zsh
+./run
+``` 
+
+Spowoduje to utworzenie JARa a następnie zbudowanie obrazu Dockera z aplikacją. 
+
+Aby wstawić obraz na dockerhub zaloguj się do serwisu wpisując
+
+```zsh
+docker login -u <your-username>
+``` 
+
+podaj swóje hasło i token autoryzacyjny. Następnie otaguj zbudowany obraz
+
+```zsh
+docker image tag play-with-me <your-username>/kafka-sms-analyser:latest
+``` 
+
+I umieść go w dockerhubie. 
+```zsh
+docker image push <your-username>/kafka-sms-analyser:latest
+``` 
 
 
 ## SSL
@@ -91,6 +120,9 @@ Aby to umożliwić konieczne jest wykonanie kilku kroków:
 
 Takie rozwiązanie SSL zdążyłem zaimplementować, ale nie zdążyłem przetestować czy w ogóle zadziała, dlatego jest ono w kodzie
 źródłowym zakomentowane. Bardzo możliwe, że coś w takim rozwiązaniu jest nie tak.  
+
+# Testowanie aplikacji
+
 
 # What TODO
 Co można by jeszcze zmodyfikować/poprawić? 

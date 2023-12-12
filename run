@@ -1,5 +1,22 @@
 #!/bin/zsh
 
-chmod +x ./kafka-sms-analyser/generateJAR
+APP_NAME="kafka-sms-analyser"
+APP_VERSION="0.1.0"
+APP=$APP_NAME-$APP_VERSION
 
-./kafka-sms-analyser/generateJAR
+chmod +x ./kafka-sms-analyser/generateJARAndBuildImage
+
+./kafka-sms-analyser/generateJARAndBuildImage
+
+# jar -uf ./target/scala-2.13/kafka-sms-analyser-0.1.0.jar logback.xml
+
+# after building image we can remove JAR file
+rm -rf ./kafka-sms-analyser/target/scala-2.13/kafka-sms-analyser-0.1.0.jar
+
+
+
+# https://www.techrepublic.com/article/how-to-build-a-docker-image-and-upload-it-to-docker-hub/
+# https://docs.docker.com/scout/quickstart/
+# docker login -u NAME
+# docker image tag $APP_NAME USER/$APP_NAME:latest
+# docker image push USER/trtest:latest

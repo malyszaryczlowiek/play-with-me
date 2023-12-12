@@ -1,0 +1,12 @@
+#!/bin/zsh
+
+chmod +x ./smsSender
+chmod +x ./topicContentZsh
+chmod +x ./kafka-sms-analyser/generateJAR
+
+./kafka-sms-analyser/generateJAR
+
+docker-compose -f docker-compose.dev.yml up -d
+
+
+rm -rf ./kafka-sms-analyser/target/scala-2.13/kafka-sms-analyser-0.1.0.jar
