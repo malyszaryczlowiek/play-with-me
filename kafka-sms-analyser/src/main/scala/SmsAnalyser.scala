@@ -24,18 +24,6 @@ class SmsAnalyser
 object SmsAnalyser {
 
 
-  def main33(args: Array[String]): Unit = {
-
-    var i = 60
-    while (i > 0) {
-      println(s"${KafkaSSLConfig.SSL_CERTIFICATE}")
-      Thread.sleep(1000)
-      i -= 1
-    }
-
-  }
-
-
   def main(args: Array[String]): Unit = {
 
 
