@@ -24,7 +24,7 @@ informacje o statusie ochrony użytkownika, poziomie bezpieczeństwa danego URI 
 ## Korzyści z takiej architektury
 Pełna skalowalność. Możemy mieć tyle egzemplarzy tej aplikacji ile wynosi 
 partycjonowanie danych w topicach (topiku wejściowym). Jeśli w klastrze mamy kilka brokerów to dodatkowo jesteśmy zabezpieczeni na wypadek 
-awarii jednego czy kilku z nich (ale nie wszystkich naraz 😵). 
+awarii jednego czy kilku z nich (ale nie wszystkich naraz). 
 
 
 # Topologia
